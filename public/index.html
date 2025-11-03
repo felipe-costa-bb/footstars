@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Field Battle - Multiplayer</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <div id="lobby" class="screen">
+      <h1>⚽ Field Battle</h1>
+      <p>Real-time multiplayer soccer simulation</p>
+
+      <div id="create-session">
+        <h2>Create New Session</h2>
+        <input type="text" id="create-name" placeholder="Your name" value="Player A">
+        <button id="create-btn">Create Session</button>
+      </div>
+
+      <div id="join-session">
+        <h2>Join Existing Session</h2>
+        <input type="text" id="session-id" placeholder="Session ID" maxlength="6" style="text-transform: uppercase;">
+        <input type="text" id="join-name" placeholder="Your name" value="Player B">
+        <button id="join-btn">Join Session</button>
+      </div>
+
+      <div id="session-info" style="display: none;">
+        <h2>Session <span id="current-session-id"></span></h2>
+        <div id="players-list"></div>
+        <button id="ready-btn">I'm Ready</button>
+        <button id="start-btn" style="display: none;">Start Match</button>
+      </div>
+    </div>
+
+    <div id="game" class="screen" style="display: none;">
+      <div id="game-header">
+        <h2>Match in Progress</h2>
+        <div id="player-role"></div>
+      </div>
+
+      <div id="console">
+        <div id="console-output"></div>
+      </div>
+
+      <div id="controls">
+        <button id="next-action-btn" style="display: none;">Next Action</button>
+      </div>
+    </div>
+
+    <div id="error" style="display: none;">
+      <h2>Error</h2>
+      <p id="error-message"></p>
+      <button onclick="location.reload()">Reload</button>
+    </div>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

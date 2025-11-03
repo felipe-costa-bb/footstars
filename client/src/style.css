@@ -1,0 +1,52 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #1a1625;
+  color: #e5e7eb;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.smooth-fade {
+  @apply transition-opacity duration-300 ease-in-out;
+}
+
+.smooth-slide {
+  @apply transition-transform duration-300 ease-in-out;
+}
+
+.field-zone {
+  @apply border-2 border-field-accent rounded-lg p-4 bg-field-green/20;
+}
+
+.event-log-item {
+  @apply p-3 mb-2 rounded border-l-4 border-field-accent bg-gray-800/50 text-sm font-mono;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.goal-celebration {
+  animation: goalPulse 1s ease-in-out;
+}
+
+@keyframes goalPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; transform: scale(1.05); }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "field-battle",
+  "version": "0.1.0",
+  "description": "Strategic board-style soccer card game with zone-based gameplay",
+  "type": "module",
+  "main": "src/cli/index.js",
+  "scripts": {
+    "start": "node src/cli/index.js",
+    "server": "node src/server/index.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "simulate": "node src/cli/simulate.js multi 10",
+    "simulate:single": "node src/cli/simulate.js single",
+    "simulate:many": "node src/cli/simulate.js multi 100"
+  },
+  "keywords": [
+    "game",
+    "soccer",
+    "card-game",
+    "strategy"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "vitest": "^2.1.8"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
