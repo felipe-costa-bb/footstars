@@ -200,6 +200,13 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  // Public games list (for lobby)
+  if (url === '/api/public-games' && req.method === 'GET') {
+    const publicGames = sessionManager.getPublicSessions();
+    res.writeHead(200).end(JSON.stringify(publicGames));
+    return;
+  }
+
   // Get available opponent teams (for matchmaking - public teams data)
   if (req.url === '/api/teams' && req.method === 'GET') {
     try {
@@ -332,7 +339,8 @@ function handleCreateSession(ws, payload) {
     if (user) userId = user.id;
   }
 
-  const sessionId = sessionManager.createSession(payload.name || 'Player A', payload.sessionId);
+  const isPublic = payload.isPublic || false;
+  const sessionId = sessionManager.createSession(payload.name || 'Player A', payload.sessionId, isPublic);
 
   // Store session ID on socket for later reference
   ws.sessionId = sessionId;
@@ -350,11 +358,12 @@ function handleCreateSession(ws, payload) {
     payload: {
       sessionId,
       role: 'A',
+      isPublic,
       players: session.getPlayers()
     }
   }));
 
-  console.log(`Session ${sessionId} created by ${payload.name || 'Player A'} (User ID: ${userId})`);
+  console.log(`Session ${sessionId} created by ${payload.name || 'Player A'} (User ID: ${userId}, Public: ${isPublic})`);
 }
 
 function handleJoinSession(ws, payload) {
@@ -527,6 +536,12 @@ function runMatchSimulation(session) {
         const winnerId = winner === 'A' ? playerA.userId : playerB.userId;
         const loserId = winner === 'A' ? playerB.userId : playerA.userId;
 
+        // Get scores from engine state
+        const scoreA = engine.state.score.A || 0;
+        const scoreB = engine.state.score.B || 0;
+        const scoreWinner = winner === 'A' ? scoreA : scoreB;
+        const scoreLoser = winner === 'A' ? scoreB : scoreA;
+
         // We need the card IDs of the loser's team.
         // Currently GameEngine teams don't store card IDs, just players.
         // We need to fetch the team from DB or store card IDs in engine team.
@@ -534,6 +549,14 @@ function runMatchSimulation(session) {
         if (loserDbTeam) {
           anteCardId = cardManager.processAnte(winnerId, loserId, loserDbTeam.card_ids);
           console.log(`Ante Processed: Card ${anteCardId} transferred from ${loserId} to ${winnerId}`);
+        }
+
+        // Save match result to database
+        try {
+          dbRequest.recordMatch(winnerId, loserId, scoreWinner, scoreLoser, anteCardId);
+          console.log(`Match recorded: Winner ${winnerId} (${scoreWinner}) vs Loser ${loserId} (${scoreLoser})`);
+        } catch (err) {
+          console.error('Failed to record match:', err);
         }
       }
 

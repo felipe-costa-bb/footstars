@@ -3,11 +3,14 @@
  * Represents a single game session
  */
 class Session {
-  constructor(sessionId, creatorName) {
+  constructor(sessionId, creatorName, isPublic = false) {
     this.sessionId = sessionId;
     this.players = []; // Array of { name, role, ready, socket? }
     this.gameEngine = null;
     this.lastLogIndex = 0; // Track which logs have been sent to clients
+    this.isPublic = isPublic; // Whether this game appears in public lobby
+    this.createdAt = new Date();
+    this.creatorName = creatorName; // Store creator name for public display
 
     // Add creator as player A
     this.players.push({ name: creatorName, role: 'A', ready: false, teamId: null });
@@ -130,11 +133,12 @@ export class SessionManager {
    * Create a new session
    * @param {string} creatorName - Name of the player creating the session
    * @param {string} customId - Optional custom session ID
+   * @param {boolean} isPublic - Whether this session is publicly listed
    * @returns {string} Session ID
    */
-  createSession(creatorName, customId = null) {
+  createSession(creatorName, customId = null, isPublic = false) {
     const sessionId = customId || this.generateSessionId();
-    const session = new Session(sessionId, creatorName);
+    const session = new Session(sessionId, creatorName, isPublic);
     this.sessions.set(sessionId, session);
     return sessionId;
   }
@@ -217,6 +221,27 @@ export class SessionManager {
    */
   generateSessionId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
+  }
+
+  /**
+   * Get all public sessions that are not full (for public lobby)
+   * @returns {Array} Array of session info objects for display
+   */
+  getPublicSessions() {
+    const publicSessions = [];
+    for (const session of this.sessions.values()) {
+      if (session.isPublic && !session.isFull()) {
+        const creator = session.players.find(p => p.role === 'A');
+        publicSessions.push({
+          sessionId: session.sessionId,
+          creatorName: session.creatorName,
+          teamId: creator?.teamId || null,
+          createdAt: session.createdAt,
+          playerCount: session.getPlayerCount()
+        });
+      }
+    }
+    return publicSessions;
   }
 
   /**

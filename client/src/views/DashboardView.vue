@@ -137,6 +137,11 @@
                 </span>
             </button>
             
+            <router-link to="/public-games" class="px-8 py-4 bg-green-700 text-white font-display font-bold text-lg rounded-xl border border-green-500/30 hover:bg-green-600 hover:border-green-400/50 transition-all flex items-center gap-2 shadow-lg">
+                <span>🌍</span>
+                PUBLIC GAMES
+            </router-link>
+            
             <router-link to="/team-builder" class="px-8 py-4 bg-gray-800 text-white font-display font-bold text-lg rounded-xl border border-white/10 hover:bg-gray-700 hover:border-white/30 transition-all flex items-center gap-2">
                 <span class="material-icons-outlined text-field-accent">edit</span>
                 MANAGE SQUAD

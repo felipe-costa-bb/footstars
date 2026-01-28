@@ -7,7 +7,15 @@
           ← Back to Home
         </router-link>
         <h1 class="text-4xl font-bold text-white mb-2">Join a Game</h1>
-        <p class="text-gray-400">Enter the session ID and choose your team</p>
+        <p class="text-gray-400 mb-4">Enter the session ID and choose your team</p>
+        
+        <!-- Public Games Link -->
+        <router-link
+          to="/public-games"
+          class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition"
+        >
+          <span>🌍</span> Browse Public Games
+        </router-link>
       </div>
 
       <!-- Join Form -->

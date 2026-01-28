@@ -12,6 +12,36 @@
 
       <!-- Content -->
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Game Visibility Toggle -->
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <h2 class="text-xl font-bold mb-4">Game Visibility</h2>
+          <div class="flex gap-3">
+            <button
+              @click="isPublic = false"
+              :class="!isPublic
+                ? 'bg-field-accent text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
+              class="flex-1 py-3 px-4 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+            >
+              <span>🔒</span> Private Game
+            </button>
+            <button
+              @click="isPublic = true"
+              :class="isPublic
+                ? 'bg-green-600 text-white'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
+              class="flex-1 py-3 px-4 rounded-lg font-semibold transition flex items-center justify-center gap-2"
+            >
+              <span>🌍</span> Public Game
+            </button>
+          </div>
+          <p class="text-sm text-gray-400 mt-3">
+            {{ isPublic
+              ? 'Anyone can find and join your game from the public lobby.'
+              : 'Share the session ID with your friend to let them join.' }}
+          </p>
+        </div>
+
         <!-- Player Info -->
         <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
           <h2 class="text-xl font-bold mb-4">Your Info</h2>
@@ -89,6 +119,7 @@ const loading = ref(false)
 const error = ref('')
 const teams = ref([])
 const teamsLoading = ref(true)
+const isPublic = ref(false)
 
 onMounted(async () => {
   // Check auth
@@ -152,7 +183,8 @@ const createGame = () => {
   send('create_session', {
     name: playerName.value,
     teamId: selectedTeam.value,
-    token: authStore.token
+    token: authStore.token,
+    isPublic: isPublic.value
   })
   
   // Note: The actual navigation happens when 'session_info' is received.

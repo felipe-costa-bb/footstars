@@ -28,6 +28,11 @@ const routes = [
     component: () => import('../views/JoinGameView.vue')
   },
   {
+    path: '/public-games',
+    name: 'PublicGames',
+    component: () => import('../views/PublicGamesView.vue')
+  },
+  {
     path: '/lobby/:sessionId',
     name: 'Lobby',
     component: () => import('../views/LobbyView.vue')

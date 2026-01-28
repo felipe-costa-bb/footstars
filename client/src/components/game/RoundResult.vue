@@ -42,7 +42,8 @@ const props = defineProps({
   attackerTeam: { type: String, default: 'HOME' },
   defenderTeam: { type: String, default: 'AWAY' },
   scoreA: { type: Number, default: 0 },
-  scoreB: { type: Number, default: 0 }
+  scoreB: { type: Number, default: 0 },
+  passTarget: { type: String, default: '' }
 });
 
 defineEmits(['continue']);
@@ -71,7 +72,7 @@ const resultDescription = computed(() => {
   switch (props.outcome) {
     case 'GOAL': return 'The ball flies into the net!';
     case 'SAVE': return 'Goalkeeper makes a brilliant save!';
-    case 'SUCCESS': return 'Ball advances to the next zone.';
+    case 'SUCCESS': return props.passTarget ? `Ball goes to ${props.passTarget}!` : 'Ball advances to the next zone.';
     case 'INTERCEPT': return 'Possession changes hands!';
     default: return '';
   }
