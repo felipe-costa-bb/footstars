@@ -1,0 +1,126 @@
+{
+  "name": "Real Titans",
+  "players": [
+    {
+      "id": "titans-gk-1",
+      "name": "Alisson Becker",
+      "position": "GK",
+      "attributes": {
+        "power": 90,
+        "shoot": 42,
+        "tackle": 47,
+        "pass": 90
+      }
+    },
+    {
+      "id": "titans-df-1",
+      "name": "Rúben Dias",
+      "position": "DF",
+      "attributes": {
+        "power": 62,
+        "shoot": 52,
+        "tackle": 90,
+        "pass": 76
+      }
+    },
+    {
+      "id": "titans-df-2",
+      "name": "Kalidou Koulibaly",
+      "position": "DF",
+      "attributes": {
+        "power": 60,
+        "shoot": 48,
+        "tackle": 87,
+        "pass": 71
+      }
+    },
+    {
+      "id": "titans-df-3",
+      "name": "João Cancelo",
+      "position": "DF",
+      "attributes": {
+        "power": 52,
+        "shoot": 65,
+        "tackle": 82,
+        "pass": 85
+      }
+    },
+    {
+      "id": "titans-df-4",
+      "name": "Alphonso Davies",
+      "position": "DF",
+      "attributes": {
+        "power": 48,
+        "shoot": 60,
+        "tackle": 83,
+        "pass": 79
+      }
+    },
+    {
+      "id": "titans-mf-1",
+      "name": "Joshua Kimmich",
+      "position": "MF",
+      "attributes": {
+        "power": 46,
+        "shoot": 78,
+        "tackle": 80,
+        "pass": 92
+      }
+    },
+    {
+      "id": "titans-mf-2",
+      "name": "Casemiro",
+      "position": "MF",
+      "attributes": {
+        "power": 50,
+        "shoot": 70,
+        "tackle": 88,
+        "pass": 77
+      }
+    },
+    {
+      "id": "titans-mf-3",
+      "name": "Bernardo Silva",
+      "position": "MF",
+      "attributes": {
+        "power": 38,
+        "shoot": 80,
+        "tackle": 66,
+        "pass": 89
+      }
+    },
+    {
+      "id": "titans-mf-4",
+      "name": "Federico Valverde",
+      "position": "MF",
+      "attributes": {
+        "power": 44,
+        "shoot": 81,
+        "tackle": 75,
+        "pass": 84
+      }
+    },
+    {
+      "id": "titans-fw-1",
+      "name": "Mohamed Salah",
+      "position": "FW",
+      "attributes": {
+        "power": 36,
+        "shoot": 91,
+        "tackle": 50,
+        "pass": 83
+      }
+    },
+    {
+      "id": "titans-fw-2",
+      "name": "Vinícius Júnior",
+      "position": "FW",
+      "attributes": {
+        "power": 34,
+        "shoot": 88,
+        "tackle": 46,
+        "pass": 80
+      }
+    }
+  ]
+}

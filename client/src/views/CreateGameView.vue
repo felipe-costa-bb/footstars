@@ -74,14 +74,16 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '../stores/session'
 import { useTeamsStore } from '../stores/teams'
+import { useAuthStore } from '../stores/auth'
 import { useWebSocket } from '../composables/useWebSocket'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
 const teamsStore = useTeamsStore()
+const authStore = useAuthStore()
 const { send } = useWebSocket()
 
-const playerName = ref('')
+const playerName = ref(authStore.user?.username || '')
 const selectedTeam = ref(null)
 const loading = ref(false)
 const error = ref('')
@@ -89,10 +91,35 @@ const teams = ref([])
 const teamsLoading = ref(true)
 
 onMounted(async () => {
-  // Fetch teams
+  // Check auth
+  if (!authStore.isAuthenticated) {
+      router.push('/');
+      return;
+  }
+
+  // Fetch defaults
   try {
     const response = await fetch('/api/teams')
-    teams.value = await response.json()
+    const defaults = await response.json()
+    teams.value = [...defaults]
+    
+    // Fetch MY custom team
+    if (authStore.isAuthenticated) {
+        try {
+           const myTeamRes = await fetch('/api/my-team', {
+               headers: { 'Authorization': `Bearer ${authStore.token}` }
+           });
+           if (myTeamRes.ok) {
+               const myTeam = await myTeamRes.json();
+               if (myTeam) {
+                   teams.value.unshift(myTeam); // Put my team first
+               }
+           }
+        } catch (e) {
+            console.error("Failed to load my team", e);
+        }
+    }
+
     if (teams.value.length > 0) {
       selectedTeam.value = teams.value[0].id
     }
@@ -118,26 +145,39 @@ const createGame = () => {
   loading.value = true
   error.value = ''
 
+  // Store selection
+  sessionStore.setTeamId(selectedTeam.value)
+
   // Send create_session message to server
   send('create_session', {
     name: playerName.value,
-    teamId: selectedTeam.value
+    teamId: selectedTeam.value,
+    token: authStore.token
+  })
+  
+  // Note: The actual navigation happens when 'session_info' is received.
+  // We need to set up a watcher or listener for that in the store or here.
+  // For simplicity, we can rely on the store being updated by the global socket listener
+  // But we need to know when to push.
+  
+  // A simple way is to watch sessionStore.sessionId
+  const unwatch = sessionStore.$subscribe((mutation, state) => {
+    if (state.sessionId) {
+      unwatch()
+      router.push({
+        name: 'Lobby',
+        params: { sessionId: state.sessionId }
+      })
+    }
   })
 
-  // Wait for response (session_info)
-  // In real implementation, use event listener
+  // Timeout safety
   setTimeout(() => {
-    // Simulate receiving session info
-    const sessionId = 'DEMO123'
-    sessionStore.setSession(sessionId)
-    sessionStore.selectTeam(selectedTeam.value)
-    
-    router.push({
-      name: 'Lobby',
-      params: { sessionId }
-    })
-    
-    loading.value = false
-  }, 500)
+    if (loading.value) {
+      loading.value = false;
+      error.value = 'Connection timeout';
+      unwatch();
+    }
+  }, 5000);
 }
 </script>

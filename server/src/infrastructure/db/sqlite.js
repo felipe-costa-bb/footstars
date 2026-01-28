@@ -1,0 +1,218 @@
+import Database from 'better-sqlite3';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Ensure data directory exists
+const dbPath = join(__dirname, '../../data');
+if (!fs.existsSync(dbPath)) {
+    fs.mkdirSync(dbPath, { recursive: true });
+}
+
+const db = new Database(join(dbPath, 'footstars.db')); // verbose: console.log
+
+// Initialize Schema
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    currency INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_daily_login DATETIME
+  );
+
+  CREATE TABLE IF NOT EXISTS cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    player_id TEXT NOT NULL,
+    gained_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    card_ids TEXT NOT NULL, -- JSON array of card IDs
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id)
+  );
+  
+  CREATE TABLE IF NOT EXISTS matches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    winner_id INTEGER,
+    loser_id INTEGER,
+    score_winner INTEGER,
+    score_loser INTEGER,
+    played_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    ante_card_id INTEGER, -- The card that was transferred
+    FOREIGN KEY(winner_id) REFERENCES users(id),
+    FOREIGN KEY(loser_id) REFERENCES users(id)
+  );
+`);
+
+export const sqliteRepo = {
+    // User Operations
+    createUser: (username, passwordHash) => {
+        const stmt = db.prepare('INSERT INTO users (username, password_hash) VALUES (?, ?)');
+        const info = stmt.run(username, passwordHash);
+        return { id: info.lastInsertRowid, username };
+    },
+
+    findUserByUsername: (username) => {
+        const stmt = db.prepare('SELECT * FROM users WHERE username = ?');
+        return stmt.get(username);
+    },
+
+    findUserById: (id) => {
+        const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
+        return stmt.get(id);
+    },
+
+    updateDailyLogin: (userId) => {
+        const stmt = db.prepare('UPDATE users SET last_daily_login = CURRENT_TIMESTAMP WHERE id = ?');
+        stmt.run(userId);
+    },
+
+    getUserCoins: (userId) => {
+        const stmt = db.prepare('SELECT currency FROM users WHERE id = ?');
+        const result = stmt.get(userId);
+        return result ? result.currency : 0;
+    },
+
+    updateUserCoins: (userId, newBalance) => {
+        const stmt = db.prepare('UPDATE users SET currency = ? WHERE id = ?');
+        stmt.run(newBalance, userId);
+    },
+
+    addUserCoins: (userId, amount) => {
+        const current = sqliteRepo.getUserCoins(userId);
+        sqliteRepo.updateUserCoins(userId, current + amount);
+        return current + amount;
+    },
+
+    // Card Operations
+    createCard: (userId, playerId) => {
+        const stmt = db.prepare('INSERT INTO cards (user_id, player_id) VALUES (?, ?)');
+        const info = stmt.run(userId, playerId);
+        return { id: info.lastInsertRowid, userId, playerId };
+    },
+
+    getUserCards: (userId) => {
+        const stmt = db.prepare('SELECT * FROM cards WHERE user_id = ?');
+        return stmt.all(userId);
+    },
+
+    getCardById: (cardId) => {
+        const stmt = db.prepare('SELECT * FROM cards WHERE id = ?');
+        return stmt.get(cardId);
+    },
+
+    transferCard: (cardId, newUserId) => {
+        const stmt = db.prepare('UPDATE cards SET user_id = ? WHERE id = ?');
+        stmt.run(newUserId, cardId);
+    },
+
+    // Team Operations
+
+    // Create a new team (supports multiple teams per user)
+    createTeam: (userId, teamName, cardIds) => {
+        const stmt = db.prepare('INSERT INTO teams (user_id, name, card_ids) VALUES (?, ?, ?)');
+        const info = stmt.run(userId, teamName, JSON.stringify(cardIds));
+        return { id: info.lastInsertRowid, userId, name: teamName, cardIds };
+    },
+
+    // Get all teams for a user
+    getAllUserTeams: (userId) => {
+        const stmt = db.prepare('SELECT * FROM teams WHERE user_id = ? ORDER BY updated_at DESC');
+        const teams = stmt.all(userId);
+        return teams.map(team => ({
+            ...team,
+            card_ids: JSON.parse(team.card_ids)
+        }));
+    },
+
+    // Get a specific team by ID
+    getTeamById: (teamId) => {
+        const team = db.prepare('SELECT * FROM teams WHERE id = ?').get(teamId);
+        if (team) {
+            team.card_ids = JSON.parse(team.card_ids);
+        }
+        return team;
+    },
+
+    // Update an existing team
+    updateTeam: (teamId, teamName, cardIds) => {
+        const stmt = db.prepare('UPDATE teams SET name = ?, card_ids = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?');
+        stmt.run(teamName, JSON.stringify(cardIds), teamId);
+        return { id: teamId, name: teamName, cardIds };
+    },
+
+    // Delete a team
+    deleteTeam: (teamId, userId) => {
+        const stmt = db.prepare('DELETE FROM teams WHERE id = ? AND user_id = ?');
+        const result = stmt.run(teamId, userId);
+        return result.changes > 0;
+    },
+
+    // Legacy: Get first team for a user (for backward compatibility)
+    getUserTeam: (userId) => {
+        const team = db.prepare('SELECT * FROM teams WHERE user_id = ? ORDER BY updated_at DESC LIMIT 1').get(userId);
+        if (team) {
+            team.card_ids = JSON.parse(team.card_ids);
+        }
+        return team;
+    },
+
+    // Match Operations
+    recordMatch: (winnerId, loserId, scoreWinner, scoreLoser, anteCardId) => {
+        const stmt = db.prepare(`
+      INSERT INTO matches (winner_id, loser_id, score_winner, score_loser, ante_card_id)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+        const info = stmt.run(winnerId, loserId, scoreWinner, scoreLoser, anteCardId);
+        return { id: info.lastInsertRowid };
+    },
+
+    getMatchHistory: (userId, limit = 20) => {
+        const stmt = db.prepare(`
+            SELECT 
+                m.id,
+                m.winner_id,
+                m.loser_id,
+                m.score_winner,
+                m.score_loser,
+                m.played_at,
+                m.ante_card_id,
+                w.username as winner_name,
+                l.username as loser_name
+            FROM matches m
+            LEFT JOIN users w ON m.winner_id = w.id
+            LEFT JOIN users l ON m.loser_id = l.id
+            WHERE m.winner_id = ? OR m.loser_id = ?
+            ORDER BY m.played_at DESC
+            LIMIT ?
+        `);
+        return stmt.all(userId, userId, limit);
+    },
+
+    getLeaderboard: (limit = 50) => {
+        const stmt = db.prepare(`
+            SELECT 
+                u.id,
+                u.username,
+                COUNT(CASE WHEN m.winner_id = u.id THEN 1 END) as wins,
+                COUNT(CASE WHEN m.loser_id = u.id THEN 1 END) as losses
+            FROM users u
+            LEFT JOIN matches m ON u.id = m.winner_id OR u.id = m.loser_id
+            GROUP BY u.id
+            ORDER BY wins DESC, losses ASC
+            LIMIT ?
+        `);
+        return stmt.all(limit);
+    }
+};

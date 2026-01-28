@@ -1,35 +1,76 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import CreateGameView from '../views/CreateGameView.vue'
-import JoinGameView from '../views/JoinGameView.vue'
-import LobbyView from '../views/LobbyView.vue'
-import GameView from '../views/GameView.vue'
+import LoginView from '../views/LoginView.vue'
 
 const routes = [
   {
     path: '/',
+    name: 'Login',
+    component: LoginView
+  },
+  {
+    path: '/dashboard',
+    name: 'Dashboard',
+    component: () => import('../views/DashboardView.vue')
+  },
+  {
+    path: '/home',
     name: 'Home',
-    component: HomeView
+    component: () => import('../views/HomeView.vue')
   },
   {
     path: '/create',
     name: 'CreateGame',
-    component: CreateGameView
+    component: () => import('../views/CreateGameView.vue')
   },
   {
     path: '/join',
     name: 'JoinGame',
-    component: JoinGameView
+    component: () => import('../views/JoinGameView.vue')
   },
   {
     path: '/lobby/:sessionId',
     name: 'Lobby',
-    component: LobbyView
+    component: () => import('../views/LobbyView.vue')
+  },
+  {
+    path: '/collection',
+    name: 'Collection',
+    component: () => import('../views/CollectionView.vue')
+  },
+  {
+    path: '/my-teams',
+    name: 'MyTeams',
+    component: () => import('../views/MyTeamsView.vue')
+  },
+  {
+    path: '/team-builder',
+    name: 'TeamBuilder',
+    component: () => import('../views/CreateTeamView.vue')
+  },
+  {
+    path: '/history',
+    name: 'MatchHistory',
+    component: () => import('../views/MatchHistoryView.vue')
+  },
+  {
+    path: '/leaderboard',
+    name: 'Leaderboard',
+    component: () => import('../views/LeaderboardView.vue')
+  },
+  {
+    path: '/shop',
+    name: 'Shop',
+    component: () => import('../views/ShopView.vue')
+  },
+  {
+    path: '/match-setup',
+    name: 'MatchSetup',
+    component: () => import('../views/MatchSetupView.vue')
   },
   {
     path: '/game/:sessionId',
     name: 'Game',
-    component: GameView
+    component: () => import('../views/GameView.vue')
   }
 ]
 

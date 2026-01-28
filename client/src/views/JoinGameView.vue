@@ -59,6 +59,30 @@
         <div v-if="error" class="mt-4 p-3 bg-red-900/30 border border-red-600 rounded text-red-400">
           {{ error }}
         </div>
+        <!-- Team Selection -->
+        <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+          <h2 class="text-xl font-bold mb-4">Select Your Team</h2>
+          
+          <div v-if="teamsLoading" class="text-center py-8">
+            <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-field-accent mx-auto"></div>
+            <p class="text-gray-400 mt-2">Loading teams...</p>
+          </div>
+
+          <div v-else class="space-y-3 max-h-64 overflow-y-auto">
+            <div
+              v-for="team in teams"
+              :key="team.id"
+              @click="selectedTeam = team.id"
+              class="p-3 rounded border-2 cursor-pointer transition"
+              :class="selectedTeam === team.id
+                ? 'border-field-accent bg-field-accent/20'
+                : 'border-gray-600 bg-gray-700 hover:bg-gray-600'"
+            >
+              <div class="font-semibold">{{ team.name }}</div>
+              <div class="text-sm text-gray-400">{{ team.players.length }} players</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -68,26 +92,59 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '../stores/session'
+import { useAuthStore } from '../stores/auth'
 import { useWebSocket } from '../composables/useWebSocket'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const authStore = useAuthStore()
 const { send } = useWebSocket()
 
 const sessionId = ref('')
-const playerName = ref('')
+const playerName = ref(authStore.user?.username || '')
 const selectedTeam = ref('')
 const loading = ref(false)
 const error = ref('')
 const teams = ref([])
+const teamsLoading = ref(true)
 
 onMounted(async () => {
-  // Fetch teams
+    // Check auth
+  if (!authStore.isAuthenticated) {
+      router.push('/');
+      return;
+  }
+  
+  // Fetch defaults
   try {
     const response = await fetch('/api/teams')
-    teams.value = await response.json()
+    const defaults = await response.json()
+    teams.value = [...defaults]
+    
+    // Fetch MY custom team
+    if (authStore.isAuthenticated) {
+        try {
+           const myTeamRes = await fetch('/api/my-team', {
+               headers: { 'Authorization': `Bearer ${authStore.token}` }
+           });
+           if (myTeamRes.ok) {
+               const myTeam = await myTeamRes.json();
+               if (myTeam) {
+                   teams.value.unshift(myTeam); // Put my team first
+               }
+           }
+        } catch (e) {
+            console.error("Failed to load my team", e);
+        }
+    }
+
+    if (teams.value.length > 0) {
+       selectedTeam.value = teams.value[0].id
+    }
   } catch (err) {
     console.error('Failed to load teams:', err)
+  } finally {
+    teamsLoading.value = false
   }
 })
 
@@ -110,25 +167,35 @@ const joinGame = () => {
   loading.value = true
   error.value = ''
 
+  // Store selection
+  sessionStore.setTeamId(selectedTeam.value)
+
   // Send join_session message
   send('join_session', {
     sessionId: sessionId.value.toUpperCase(),
     name: playerName.value,
-    teamId: selectedTeam.value
+    teamId: selectedTeam.value,
+    token: authStore.token
   })
 
-  // Wait for response
+  // Wait for response (session_info) via store subscription
+  const unwatch = sessionStore.$subscribe((mutation, state) => {
+    if (state.sessionId && state.sessionId === sessionId.value.toUpperCase()) {
+      unwatch()
+      router.push({
+        name: 'Lobby',
+        params: { sessionId: state.sessionId }
+      })
+    }
+  })
+
+  // Timeout safety
   setTimeout(() => {
-    sessionStore.setSession(sessionId.value.toUpperCase())
-    sessionStore.setPlayerInfo(playerName.value, 'B')
-    sessionStore.selectTeam(selectedTeam.value)
-    
-    router.push({
-      name: 'Lobby',
-      params: { sessionId: sessionId.value.toUpperCase() }
-    })
-    
-    loading.value = false
-  }, 500)
+    if (loading.value) {
+      loading.value = false
+      error.value = 'Could not join session. Check ID and try again.'
+      unwatch()
+    }
+  }, 5000)
 }
 </script>

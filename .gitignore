@@ -62,3 +62,6 @@ test-results/
 # Saved games (future feature)
 saves/*.json
 !saves/.gitkeep
+.browser-profiles/
+
+.npm-cache/

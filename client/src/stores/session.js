@@ -11,6 +11,11 @@ export const useSessionStore = defineStore('session', () => {
     B: null
   })
   const bothReady = ref(false)
+  const teamId = ref(null) // New: Store the user's own team ID
+
+  const setTeamId = (id) => {
+    teamId.value = id
+  }
 
   const getPlayerTeam = computed(() => {
     const role = playerRole.value
@@ -62,6 +67,8 @@ export const useSessionStore = defineStore('session', () => {
     updatePlayers,
     selectTeam,
     setBothReady,
+    setTeamId,  // New action
+    teamId,     // New state
     reset
   }
-})
+});

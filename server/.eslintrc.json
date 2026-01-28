@@ -1,0 +1,59 @@
+{
+    "env": {
+        "node": true,
+        "es2021": true,
+        "mocha": true
+    },
+    "extends": [
+        "airbnb-base",
+        "prettier"
+    ],
+    "parserOptions": {
+        "ecmaVersion": 12,
+        "sourceType": "module"
+    },
+    "rules": {
+        "no-console": "off",
+        "import/extensions": [
+            "error",
+            "always"
+        ],
+        "no-plusplus": "off",
+        "class-methods-use-this": "off",
+        "no-use-before-define": [
+            "error",
+            {
+                "functions": false
+            }
+        ],
+        "import/prefer-default-export": "off",
+        "no-restricted-syntax": "off",
+        "no-bitwise": "off",
+        "no-underscore-dangle": "off",
+        "no-param-reassign": [
+            "error",
+            {
+                "props": false
+            }
+        ],
+        "camelcase": "off",
+        "no-unused-vars": [
+            "error",
+            {
+                "argsIgnorePattern": "^_"
+            }
+        ],
+        "import/no-extraneous-dependencies": [
+            "error",
+            {
+                "devDependencies": [
+                    "**/*.test.js",
+                    "**/*.spec.js",
+                    "src/tests/**",
+                    "scripts/**",
+                    "src/cli/simulate.js"
+                ]
+            }
+        ]
+    }
+}
