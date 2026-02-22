@@ -75,6 +75,39 @@ export const useAuthStore = defineStore('auth', () => {
         }
     };
 
+    const updateProfile = async ({ username, avatarUrl }) => {
+        loading.value = true;
+        error.value = null;
+        try {
+            const res = await fetch('http://localhost:3000/api/profile', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token.value}`
+                },
+                body: JSON.stringify({ username, avatarUrl })
+            });
+
+            const data = await res.json();
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Update failed');
+            }
+
+            // Update local user state
+            user.value = { ...user.value, ...data };
+            localStorage.setItem('user', JSON.stringify(user.value));
+
+            return true;
+        } catch (err) {
+            console.error("Update Profile Error:", err);
+            error.value = err.message;
+            return false;
+        } finally {
+            loading.value = false;
+        }
+    };
+
     const logout = () => {
         token.value = null;
         user.value = null;
@@ -90,6 +123,7 @@ export const useAuthStore = defineStore('auth', () => {
         isAuthenticated,
         login,
         register,
+        updateProfile,
         logout
     };
 });

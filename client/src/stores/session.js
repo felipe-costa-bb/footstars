@@ -12,9 +12,17 @@ export const useSessionStore = defineStore('session', () => {
   })
   const bothReady = ref(false)
   const teamId = ref(null) // New: Store the user's own team ID
+  const matchState = ref({
+    active: false,
+    params: null
+  })
 
   const setTeamId = (id) => {
     teamId.value = id
+  }
+
+  const setMatchStarted = (active, params = {}) => {
+    matchState.value = { active, params }
   }
 
   const getPlayerTeam = computed(() => {
@@ -50,6 +58,8 @@ export const useSessionStore = defineStore('session', () => {
     playerName.value = ''
     playerRole.value = null
     players.value = []
+    teamId.value = null
+    matchState.value = { active: false, params: null }
     teamSelection.value = { A: null, B: null }
     bothReady.value = false
   }
@@ -68,6 +78,10 @@ export const useSessionStore = defineStore('session', () => {
     selectTeam,
     setBothReady,
     setTeamId,  // New action
+    setMatchStarted,
+    matchState,
+    matchActive: computed(() => matchState.value.active),
+    matchParams: computed(() => matchState.value.params),
     teamId,     // New state
     reset
   }

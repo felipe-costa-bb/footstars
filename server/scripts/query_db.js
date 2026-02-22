@@ -21,10 +21,17 @@ const tableData = players.map(p => {
         Team: p.team_name,
         'Pace': p.pace,
         'Shoot': p.shoot, // Derived game stat
-        'Stats?': detailed ? '✅ Yes' : '❌ No'
+        'Stats?': detailed ? '✅ Yes' : '❌ No',
+        'RawPos': detailed?.commonName || detailed?.position || '?' // Check for internal position data
     };
 });
 
 console.table(tableData);
+if (players.length > 0) {
+    console.log('\n🔍 Detailed Stats Example (First Player):');
+    try {
+        console.log(JSON.stringify(JSON.parse(players[0].detailed_stats), null, 2));
+    } catch (e) { console.log('No valid JSON'); }
+}
 
 console.log(`\n💡 Run with: node scripts/query_db.js`);

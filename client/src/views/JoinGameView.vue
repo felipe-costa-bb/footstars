@@ -3,8 +3,9 @@
     <div class="max-w-4xl mx-auto">
       <!-- Header -->
       <div class="mb-8">
-        <router-link to="/" class="text-field-accent hover:text-field-accent/80 mb-4 inline-block">
-          ← Back to Home
+        <router-link to="/" class="flex items-center gap-2 text-field-accent hover:text-field-accent/80 mb-4 inline-block transition-colors">
+          <ArrowLeft class="w-4 h-4" />
+          <span>Back to Home</span>
         </router-link>
         <h1 class="text-4xl font-bold text-white mb-2">Join a Game</h1>
         <p class="text-gray-400 mb-4">Enter the session ID and choose your team</p>
@@ -14,7 +15,8 @@
           to="/public-games"
           class="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-semibold px-4 py-2 rounded-lg transition"
         >
-          <span>🌍</span> Browse Public Games
+          <Globe class="w-5 h-5" />
+          <span>Browse Public Games</span>
         </router-link>
       </div>
 
@@ -58,10 +60,13 @@
         <button
           @click="joinGame"
           :disabled="!sessionId || !playerName || !selectedTeam || loading"
-          class="w-full bg-field-accent hover:bg-field-accent/90 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 rounded transition"
+          class="w-full bg-field-accent hover:bg-field-accent/90 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-bold py-2 rounded transition flex items-center justify-center gap-2"
         >
           <span v-if="!loading">Join Game</span>
-          <span v-else>Joining...</span>
+          <span v-else class="flex items-center gap-2">
+            <Loader2 class="w-4 h-4 animate-spin" />
+            <span>Joining...</span>
+          </span>
         </button>
 
         <div v-if="error" class="mt-4 p-3 bg-red-900/30 border border-red-600 rounded text-red-400">
@@ -72,7 +77,7 @@
           <h2 class="text-xl font-bold mb-4">Select Your Team</h2>
           
           <div v-if="teamsLoading" class="text-center py-8">
-            <div class="animate-spin rounded-full h-8 w-8 border-t-2 border-field-accent mx-auto"></div>
+            <Loader2 class="w-8 h-8 animate-spin mx-auto text-field-accent" />
             <p class="text-gray-400 mt-2">Loading teams...</p>
           </div>
 
@@ -100,11 +105,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '../stores/session'
+import { useGameStore } from '../stores/game'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocket } from '../composables/useWebSocket'
+import { ArrowLeft, Globe, Loader2 } from 'lucide-vue-next'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const gameStore = useGameStore()
 const authStore = useAuthStore()
 const { send } = useWebSocket()
 
@@ -122,6 +130,10 @@ onMounted(async () => {
       router.push('/');
       return;
   }
+
+  // Reset previous session state
+  sessionStore.reset()
+  gameStore.reset()
   
   // Fetch defaults
   try {
@@ -178,11 +190,16 @@ const joinGame = () => {
   // Store selection
   sessionStore.setTeamId(selectedTeam.value)
 
+  // Get team name
+  const team = teams.value.find(t => t.id === selectedTeam.value)
+  const teamName = team ? team.name : 'Unknown Team'
+
   // Send join_session message
   send('join_session', {
     sessionId: sessionId.value.toUpperCase(),
     name: playerName.value,
     teamId: selectedTeam.value,
+    teamName: teamName,
     token: authStore.token
   })
 

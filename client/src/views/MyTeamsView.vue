@@ -52,7 +52,7 @@
               <div class="flex items-center justify-between">
                 <h3 class="text-xl font-display font-bold truncate">{{ team.name }}</h3>
                 <div class="text-xs text-gray-400 font-mono bg-black/30 px-2 py-1 rounded">
-                  {{ team.card_ids.length }} players
+                  {{ team.card_ids.filter(id => id).length }} players
                 </div>
               </div>
               
@@ -66,7 +66,7 @@
             <!-- Player Preview -->
             <div class="p-4 grid grid-cols-5 gap-2">
               <div 
-                v-for="(cardId, i) in team.card_ids.slice(0, 5)" 
+                v-for="(cardId, i) in team.card_ids.filter(id => id).slice(0, 5)" 
                 :key="cardId"
                 class="aspect-square rounded-lg bg-gray-700/50 flex items-center justify-center overflow-hidden"
               >
@@ -76,10 +76,10 @@
                 />
               </div>
               <div 
-                v-if="team.card_ids.length > 5" 
+                v-if="team.card_ids.filter(id => id).length > 5" 
                 class="aspect-square rounded-lg bg-gray-700/50 flex items-center justify-center text-gray-400 text-xs font-bold"
               >
-                +{{ team.card_ids.length - 5 }}
+                +{{ team.card_ids.filter(id => id).length - 5 }}
               </div>
             </div>
 
@@ -92,10 +92,19 @@
                 <span class="material-icons-outlined text-sm">sports_soccer</span>
                 PLAY
               </button>
+
+              <button 
+                @click="editTeam(team)"
+                class="px-4 py-3 bg-blue-900/30 text-blue-400 border border-blue-600/30 rounded-xl hover:bg-blue-900/50 transition-all"
+                title="Edit Team"
+              >
+                <span class="material-icons-outlined text-sm">edit</span>
+              </button>
               
               <button 
                 @click="confirmDelete(team)"
                 class="px-4 py-3 bg-red-900/30 text-red-400 border border-red-600/30 rounded-xl hover:bg-red-900/50 transition-all"
+                title="Delete Team"
               >
                 <span class="material-icons-outlined text-sm">delete</span>
               </button>
@@ -164,13 +173,20 @@ const fetchTeams = async () => {
 
 const getAverageRating = (team) => {
     // This would require fetching card details - for now return placeholder
-    return team.card_ids.length > 0 ? '80+' : '-';
+    return team.card_ids.filter(id => id).length > 0 ? '80+' : '-';
 };
 
 const playMatch = (team) => {
     // Navigate to match setup to select opponent
     router.push({ 
         path: '/match-setup',
+        query: { teamId: team.id }
+    });
+};
+
+const editTeam = (team) => {
+    router.push({
+        path: '/team-builder',
         query: { teamId: team.id }
     });
 };

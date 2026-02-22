@@ -82,9 +82,9 @@ const selectPlayer = (player) => {
 const getPlayerZone = (player) => {
   const pos = player.position;
   if (pos === 'GK') return 0;
-  if (['DF', 'CB', 'LB', 'RB'].includes(pos)) return 1;
-  if (['MF', 'CM', 'LM', 'RM'].includes(pos)) return 2;
-  if (['FW', 'ST', 'LW', 'RW'].includes(pos)) return 3;
+  if (['DF', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'WB'].includes(pos)) return 1;
+  if (['MF', 'CM', 'LM', 'RM', 'CDM', 'CAM'].includes(pos)) return 2;
+  if (['FW', 'ST', 'LW', 'RW', 'CF'].includes(pos)) return 3;
   return 2;
 };
 
@@ -101,9 +101,9 @@ const getZoneName = (player) => {
 
 const getPositionColor = (position) => {
   if (position === 'GK') return 'text-yellow-400';
-  if (['DF', 'CB', 'LB', 'RB'].includes(position)) return 'text-blue-400';
-  if (['MF', 'CM', 'LM', 'RM'].includes(position)) return 'text-green-400';
-  if (['FW', 'ST', 'LW', 'RW'].includes(position)) return 'text-red-400';
+  if (['DF', 'CB', 'LB', 'RB', 'LWB', 'RWB', 'WB'].includes(position)) return 'text-blue-400';
+  if (['MF', 'CM', 'LM', 'RM', 'CDM', 'CAM'].includes(position)) return 'text-green-400';
+  if (['FW', 'ST', 'LW', 'RW', 'CF'].includes(position)) return 'text-red-400';
   return 'text-gray-400';
 };
 </script>

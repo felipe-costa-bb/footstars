@@ -3,8 +3,9 @@
     <div class="max-w-4xl mx-auto">
       <!-- Header -->
       <div class="mb-8">
-        <router-link to="/join" class="text-field-accent hover:text-field-accent/80 mb-4 inline-block">
-          ← Back to Join Game
+        <router-link to="/join" class="flex items-center gap-2 text-field-accent hover:text-field-accent/80 mb-4 inline-block transition-colors">
+          <ArrowLeft class="w-4 h-4" />
+          <span>Back to Join Game</span>
         </router-link>
         <h1 class="text-4xl font-bold text-white mb-2">Public Games</h1>
         <p class="text-gray-400">Browse and join available games</p>
@@ -22,7 +23,9 @@
 
       <!-- Empty State -->
       <div v-else-if="games.length === 0" class="bg-gray-800 border border-gray-700 rounded-lg p-12 text-center">
-        <div class="text-6xl mb-4">🎮</div>
+        <div class="flex justify-center mb-4">
+            <Gamepad2 class="w-20 h-20 text-gray-600" />
+        </div>
         <h3 class="text-xl font-bold text-white mb-2">No Public Games Available</h3>
         <p class="text-gray-400 mb-6">Be the first to create a public game!</p>
         <router-link
@@ -35,6 +38,19 @@
 
       <!-- Games List -->
       <div v-else class="space-y-4">
+        <!-- Team Selector -->
+        <div class="bg-gray-800 border border-gray-700 rounded-lg p-6 mb-8">
+          <label class="block text-gray-400 text-sm mb-2">Playing As:</label>
+          <select 
+            v-model="selectedTeamId"
+            class="w-full bg-gray-900 text-white border border-gray-700 rounded px-4 py-2 focus:border-field-accent outline-none"
+          >
+            <option v-for="team in teams" :key="team.id" :value="team.id">
+              {{ team.name }} {{ String(team.id).includes('fc_lightning') || String(team.id).includes('real_titans') ? '(Default)' : '(My Team)' }}
+            </option>
+          </select>
+        </div>
+
         <div
           v-for="game in games"
           :key="game.sessionId"
@@ -43,15 +59,15 @@
           <div class="flex items-center justify-between">
             <div>
               <div class="flex items-center gap-3 mb-2">
-                <span class="text-2xl">👤</span>
+                <User class="w-6 h-6 text-gray-400" />
                 <h3 class="text-xl font-bold text-white">{{ game.creatorName }}</h3>
               </div>
               <div class="flex items-center gap-4 text-sm text-gray-400">
                 <span class="flex items-center gap-1">
-                  <span>🏆</span> {{ getTeamName(game.teamId) }}
+                  <Trophy class="w-4 h-4 text-yellow-500" /> {{ getTeamName(game.teamId) }}
                 </span>
                 <span class="flex items-center gap-1">
-                  <span>⏰</span> {{ formatTime(game.createdAt) }}
+                  <Clock class="w-4 h-4" /> {{ formatTime(game.createdAt) }}
                 </span>
               </div>
             </div>
@@ -62,7 +78,10 @@
               class="bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white font-bold px-6 py-3 rounded-lg transition flex items-center gap-2"
             >
               <span v-if="joining !== game.sessionId">Join Game</span>
-              <span v-else>Joining...</span>
+              <span v-else class="flex items-center gap-2">
+                  <Loader2 class="w-4 h-4 animate-spin" />
+                  <span>Joining...</span>
+              </span>
             </button>
           </div>
         </div>
@@ -80,11 +99,14 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '../stores/session'
+import { useGameStore } from '../stores/game'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocket } from '../composables/useWebSocket'
+import { ArrowLeft, Gamepad2, User, Trophy, Clock, Loader2 } from 'lucide-vue-next'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
+const gameStore = useGameStore()
 const authStore = useAuthStore()
 const { send } = useWebSocket()
 
@@ -93,6 +115,7 @@ const loading = ref(true)
 const error = ref('')
 const joining = ref(null)
 const teams = ref([])
+const selectedTeamId = ref(null)
 let refreshInterval = null
 
 const fetchGames = async () => {
@@ -111,7 +134,35 @@ const fetchGames = async () => {
 const fetchTeams = async () => {
   try {
     const res = await fetch('/api/teams')
-    teams.value = await res.json()
+    const defaults = await res.json()
+    teams.value = [...defaults]
+    
+    // Fetch MY custom team
+    if (authStore.isAuthenticated) {
+        try {
+           const myTeamRes = await fetch('/api/my-team', {
+               headers: { 'Authorization': `Bearer ${authStore.token}` }
+           });
+           if (myTeamRes.ok) {
+               const myTeam = await myTeamRes.json();
+               if (myTeam) {
+                   // Check if already in list (unlikely if defaults are just defaults)
+                   const idx = teams.value.findIndex(t => t.id === myTeam.id);
+                   if (idx !== -1) {
+                       teams.value.splice(idx, 1);
+                   }
+                   teams.value.unshift(myTeam); // Put my team first
+                   selectedTeamId.value = myTeam.id; // Auto-select my team
+               }
+           }
+        } catch (e) {
+            console.error("Failed to load my team", e);
+        }
+    }
+
+    if (teams.value.length > 0 && !selectedTeamId.value) {
+           selectedTeamId.value = teams.value[0].id
+    }
   } catch (err) {
     console.error('Failed to load teams:', err)
   }
@@ -142,32 +193,26 @@ const joinGame = async (sessionId) => {
 
   joining.value = sessionId
 
-  // Get user's first team for joining
-  let selectedTeam = null
-  try {
-    const myTeamRes = await fetch('/api/my-team', {
-      headers: { 'Authorization': `Bearer ${authStore.token}` }
-    })
-    if (myTeamRes.ok) {
-      const myTeam = await myTeamRes.json()
-      selectedTeam = myTeam?.id
-    }
-  } catch (e) {
-    console.error('Failed to load my team:', e)
+  // Use selected team from dropdown
+  let teamId = selectedTeamId.value
+  
+  // Fallback if nothing selected (should match dropdown default)
+  if (!teamId && teams.value.length > 0) {
+    teamId = teams.value[0].id
   }
 
-  // Fallback to default team if user has none
-  if (!selectedTeam && teams.value.length > 0) {
-    selectedTeam = teams.value[0].id
-  }
+  sessionStore.setTeamId(teamId)
 
-  sessionStore.setTeamId(selectedTeam)
+  // Get team name
+  const team = teams.value.find(t => t.id === teamId)
+  const teamName = team ? team.name : 'Unknown Team'
 
   // Send join request
   send('join_session', {
     sessionId: sessionId,
     name: authStore.user?.username || 'Player',
-    teamId: selectedTeam,
+    teamId: teamId,
+    teamName: teamName,
     token: authStore.token
   })
 
@@ -197,6 +242,10 @@ onMounted(async () => {
     router.push('/')
     return
   }
+
+  // Reset previous session state
+  sessionStore.reset()
+  gameStore.reset()
 
   await Promise.all([fetchGames(), fetchTeams()])
   

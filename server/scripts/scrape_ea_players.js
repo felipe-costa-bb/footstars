@@ -15,7 +15,7 @@ import * as cheerio from 'cheerio';
 import { initScraperSchema, upsertPlayer, upsertTeam, getPlayerCount } from '../src/infrastructure/db/scraper_schema.js';
 
 const BASE_URL = 'https://www.ea.com/games/ea-sports-fc/ratings';
-const DELAY_BETWEEN_PAGES = 1000; // 1 second between pages
+const DELAY_BETWEEN_PAGES = 100; // 0.1 second between pages for speed
 
 // Parse command line arguments
 const args = process.argv.slice(2);
@@ -36,14 +36,33 @@ function mapPosition(eaPositionLabel, eaPositionId) {
     const label = (eaPositionLabel || '').toLowerCase();
 
     if (label.includes('goalkeeper')) return 'GK';
-    if (label.includes('back')) return 'DF';
-    if (label.includes('defender')) return 'DF';
-    if (label.includes('midfield')) return 'MF';
-    if (label.includes('wing')) return 'FW';
-    if (label.includes('striker')) return 'FW';
-    if (label.includes('forward')) return 'FW';
 
-    return 'MF'; // Default
+    // Defenders
+    if (label.includes('center back')) return 'CB';
+    if (label.includes('left back')) return 'LB';
+    if (label.includes('right back')) return 'RB';
+    if (label.includes('wing back') && label.includes('left')) return 'LWB';
+    if (label.includes('wing back') && label.includes('right')) return 'RWB';
+    if (label.includes('back')) return 'CB'; // Default defender
+    if (label.includes('defender')) return 'CB';
+
+    // Midfielders
+    if (label.includes('defensive mid')) return 'CDM';
+    if (label.includes('attacking mid')) return 'CAM';
+    if (label.includes('center mid')) return 'CM';
+    if (label.includes('left mid')) return 'LM';
+    if (label.includes('right mid')) return 'RM';
+    if (label.includes('midfield')) return 'CM'; // Default mid
+
+    // Forwards
+    if (label.includes('cf') || label.includes('center forward')) return 'CF';
+    if (label.includes('st') || label.includes('striker')) return 'ST';
+    if (label.includes('left wing')) return 'LW';
+    if (label.includes('right wing')) return 'RW';
+    if (label.includes('wing')) return 'RW'; // Default wing? Or maybe generic
+    if (label.includes('forward')) return 'ST'; // Default forward
+
+    return 'CM'; // Ultimate fallback
 }
 
 /**

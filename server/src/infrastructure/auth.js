@@ -51,8 +51,8 @@ export const auth = {
         // Create user
         const newUser = dbRequest.createUser(username, hash);
 
-        // Set initial coins (1000)
-        dbRequest.updateUserCoins(newUser.id, 1000);
+        // Set initial coins (2,500,000)
+        dbRequest.updateUserCoins(newUser.id, 2500000);
 
         // Grant starter pack (11 players)
         cardManager.grantStarterPack(newUser.id);

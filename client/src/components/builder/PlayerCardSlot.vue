@@ -8,39 +8,87 @@
       <span class="text-white/50 text-xs font-bold">{{ type }}</span>
     </div>
 
-    <!-- Filled Slot -->
+    <!-- Filled Slot - Shield Card -->
     <div 
       v-else
-      class="relative w-14 h-14 cursor-pointer transform hover:scale-110 transition-all duration-200"
+      class="relative w-24 h-32 cursor-pointer transform hover:scale-110 transition-all duration-200"
     >
       <!-- Remove Button (Hover) -->
       <button 
         @click.stop="$emit('remove')"
-        class="absolute -top-2 -right-2 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow-md border border-white"
+        class="absolute -top-3 -right-3 bg-red-600 text-white rounded-full w-7 h-7 flex items-center justify-center text-sm font-bold opacity-0 group-hover:opacity-100 transition-opacity z-30 shadow-md border border-white"
+        title="Remove"
       >
         ×
       </button>
 
-      <!-- Token -->
-      <div 
-        class="w-full h-full rounded-full border-2 border-white/90 shadow-xl overflow-hidden bg-gradient-to-b from-gray-700 to-gray-900 relative"
+      <!-- Captain Badge -->
+      <button 
+        @click.stop="$emit('toggleCaptain')"
+        class="absolute -top-2 -left-2 w-8 h-8 flex items-center justify-center rounded-lg shadow-md border border-yellow-200 z-30 transition-all duration-200"
+        :class="isCaptain ? 'bg-gradient-to-br from-yellow-300 to-yellow-500 text-black scale-100 opacity-100 ring-2 ring-yellow-400/50' : 'bg-black/40 text-white/50 hover:bg-black/60 opacity-0 group-hover:opacity-100 border-white/20'"
+        title="Toggle Captain"
       >
-        <img :src="player.imageUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${player.playerId}`" class="w-full h-full object-cover" />
-      </div>
+        <span v-if="isCaptain" class="font-bold text-sm">C</span>
+        <span v-else class="text-xs">C</span>
+      </button>
 
-      <!-- Info Tag -->
-      <div class="absolute -bottom-4 left-1/2 transform -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-0.5 rounded-full whitespace-nowrap border border-white/20 shadow-sm z-10 w-20 text-center truncate">
-        {{ player.name }}
-      </div>
+      <!-- Kit Number Editor -->
+      <button 
+        @click.stop="$emit('editKit')"
+        class="absolute -bottom-2 -right-2 w-7 h-7 flex items-center justify-center rounded-full shadow-md z-30 transition-all duration-200 border border-white/20 bg-blue-900/80 text-white hover:bg-blue-600"
+        title="Edit Kit Number"
+      >
+        <span class="text-xs font-bold font-mono">{{ kitNumber || '#' }}</span>
+      </button>
+
+      <!-- Player Card Component -->
+      <PlayerCard 
+        :name="player.name || player.real_name"
+        :rating="displayRating"
+        :position="player.position"
+        :imageUrl="player.imageUrl"
+        :team="player.team"
+        :nationality="player.nationality"
+        :league="player.league"
+        :rarity="cardRarity"
+        noHover
+      />
     </div>
   </div>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue';
+import PlayerCard from '../PlayerCard.vue';
+
+const props = defineProps({
   player: Object,
-  type: String
+  type: String,
+  isCaptain: Boolean,
+  kitNumber: [Number, String]
 });
 
-defineEmits(['remove']);
+defineEmits(['remove', 'toggleCaptain', 'editKit']);
+
+// Calculate effective rating based on position
+const displayRating = computed(() => {
+  if (!props.player) return 0;
+  // If player has ratings map and we have a valid position type, use it
+  if (props.player.ratings && props.player.ratings[props.type]) {
+    return props.player.ratings[props.type];
+  }
+  return props.player.overallRating || 0;
+});
+
+// Rarity calculation based on the EFFECTIVE rating in this position
+const cardRarity = computed(() => {
+  const rating = displayRating.value;
+  if (rating >= 85) return 'gold-rare';
+  if (rating >= 76) return 'gold';
+  if (rating >= 69) return 'silver-rare';
+  if (rating >= 59) return 'silver';
+  if (rating >= 54) return 'bronze-rare';
+  return 'bronze';
+});
 </script>

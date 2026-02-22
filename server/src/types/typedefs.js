@@ -10,7 +10,7 @@
  * @typedef {Object} PlayerData
  * @property {string} id - Unique player identifier within team
  * @property {string} name - Player name
- * @property {'GK'|'DF'|'MF'|'FW'} position - Player position
+ * @property {'GK'|'CB'|'LB'|'RB'|'LWB'|'RWB'|'CDM'|'CM'|'CAM'|'LM'|'RM'|'LW'|'RW'|'ST'|'CF'} position - Player position
  * @property {PlayerAttributes} attributes - Player attributes
  */
 
@@ -84,4 +84,4 @@
  * @property {string} [winner] - Winner team ID if finished
  */
 
-export {};
+export { };

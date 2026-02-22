@@ -1,6 +1,6 @@
 <template>
   <div 
-    class="absolute w-12 h-12 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-out cursor-pointer hover:scale-110 z-20"
+    class="absolute w-14 h-14 transform -translate-x-1/2 -translate-y-1/2 transition-all duration-500 ease-out cursor-pointer hover:scale-110 z-20"
     :style="{ top: `${y}%`, left: `${x}%` }"
   >
     <!-- Selection Ring -->
@@ -22,6 +22,11 @@
        <div v-if="role" class="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-black text-white text-[8px] flex items-center justify-center font-bold border border-white">
          {{ role[0] }}
        </div>
+
+       <!-- Rating Badge -->
+       <div v-if="rating" class="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-yellow-400 text-black text-xs flex items-center justify-center font-bold border-2 border-white z-10 shadow-md">
+         {{ rating }}
+       </div>
     </div>
     
     <!-- Name Tag -->
@@ -41,6 +46,7 @@ defineProps({
   name: String,
   role: String,
   imageUrl: String,
+  rating: [Number, String],
   selected: Boolean
 });
 </script>

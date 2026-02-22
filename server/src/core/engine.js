@@ -39,7 +39,7 @@ export class GameEngine {
     // Default 100 rounds (50 per half)
     this.state = new MatchState(
       config.startingTeam || 'A',
-      Zones.GK,
+      Zones.MIDFIELD, // Kickoff happens at midfield
       config.roundsPerHalf || 50, // 50 rounds per half
       config.forceFullMatch || false
     );
@@ -50,9 +50,9 @@ export class GameEngine {
     this.logEvent({
       type: 'MATCH_START',
       teamId: startingTeamId,
-      zone: Zones.GK,
+      zone: Zones.MIDFIELD,
       outcome: 'KICKOFF',
-      description: `Match starts with ${this.teams[startingTeamId].name} in possession at GK!`
+      description: `Kickoff! ${this.teams[startingTeamId].name} starts with the ball at midfield.`
     });
   }
 

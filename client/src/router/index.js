@@ -50,7 +50,7 @@ const routes = [
   {
     path: '/team-builder',
     name: 'TeamBuilder',
-    component: () => import('../views/CreateTeamView.vue')
+    component: () => import('../views/CreateSquadView.vue')
   },
   {
     path: '/history',
@@ -76,6 +76,11 @@ const routes = [
     path: '/game/:sessionId',
     name: 'Game',
     component: () => import('../views/GameView.vue')
+  },
+  {
+    path: '/coaches',
+    name: 'Coaches',
+    component: () => import('../views/CoachesView.vue')
   }
 ]
 

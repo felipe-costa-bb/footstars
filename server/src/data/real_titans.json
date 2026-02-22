@@ -15,7 +15,7 @@
     {
       "id": "titans-df-1",
       "name": "Rúben Dias",
-      "position": "DF",
+      "position": "CB",
       "attributes": {
         "power": 62,
         "shoot": 52,
@@ -26,7 +26,7 @@
     {
       "id": "titans-df-2",
       "name": "Kalidou Koulibaly",
-      "position": "DF",
+      "position": "CB",
       "attributes": {
         "power": 60,
         "shoot": 48,
@@ -37,7 +37,7 @@
     {
       "id": "titans-df-3",
       "name": "João Cancelo",
-      "position": "DF",
+      "position": "RB",
       "attributes": {
         "power": 52,
         "shoot": 65,
@@ -48,7 +48,7 @@
     {
       "id": "titans-df-4",
       "name": "Alphonso Davies",
-      "position": "DF",
+      "position": "LB",
       "attributes": {
         "power": 48,
         "shoot": 60,
@@ -59,7 +59,7 @@
     {
       "id": "titans-mf-1",
       "name": "Joshua Kimmich",
-      "position": "MF",
+      "position": "CDM",
       "attributes": {
         "power": 46,
         "shoot": 78,
@@ -70,7 +70,7 @@
     {
       "id": "titans-mf-2",
       "name": "Casemiro",
-      "position": "MF",
+      "position": "CDM",
       "attributes": {
         "power": 50,
         "shoot": 70,
@@ -81,7 +81,7 @@
     {
       "id": "titans-mf-3",
       "name": "Bernardo Silva",
-      "position": "MF",
+      "position": "CM",
       "attributes": {
         "power": 38,
         "shoot": 80,
@@ -92,7 +92,7 @@
     {
       "id": "titans-mf-4",
       "name": "Federico Valverde",
-      "position": "MF",
+      "position": "CM",
       "attributes": {
         "power": 44,
         "shoot": 81,
@@ -103,7 +103,7 @@
     {
       "id": "titans-fw-1",
       "name": "Mohamed Salah",
-      "position": "FW",
+      "position": "RW",
       "attributes": {
         "power": 36,
         "shoot": 91,
@@ -114,7 +114,7 @@
     {
       "id": "titans-fw-2",
       "name": "Vinícius Júnior",
-      "position": "FW",
+      "position": "LW",
       "attributes": {
         "power": 34,
         "shoot": 88,

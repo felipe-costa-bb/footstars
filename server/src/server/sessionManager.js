@@ -13,7 +13,7 @@ class Session {
     this.creatorName = creatorName; // Store creator name for public display
 
     // Add creator as player A
-    this.players.push({ name: creatorName, role: 'A', ready: false, teamId: null });
+    this.players.push({ name: creatorName, role: 'A', ready: false, teamId: null, teamName: null });
   }
 
   /**
@@ -21,23 +21,25 @@ class Session {
    * @param {string} playerName - Player name
    * @param {*} socket - WebSocket connection (optional, for tracking)
    * @param {string} teamId - Team ID (optional)
+   * @param {string} teamName - Team Name (optional)
    */
-  addPlayer(playerName, socket = null, teamId = null) {
+  addPlayer(playerName, socket = null, teamId = null, teamName = null) {
     // Check if player already exists (update socket)
     const existingPlayer = this.players.find(p => p.name === playerName);
     if (existingPlayer) {
       existingPlayer.socket = socket;
       if (teamId) existingPlayer.teamId = teamId;
+      if (teamName) existingPlayer.teamName = teamName;
       return;
     }
 
     // Add new player
     if (this.players.length === 0) {
       // First player is A
-      this.players.push({ name: playerName, role: 'A', ready: false, socket, teamId });
+      this.players.push({ name: playerName, role: 'A', ready: false, socket, teamId, teamName });
     } else if (this.players.length === 1) {
       // Second player is B
-      this.players.push({ name: playerName, role: 'B', ready: false, socket, teamId });
+      this.players.push({ name: playerName, role: 'B', ready: false, socket, teamId, teamName });
     }
   }
 
@@ -74,7 +76,8 @@ class Session {
       name: player.name,
       role: player.role,
       ready: player.ready,
-      teamId: player.teamId || null
+      teamId: player.teamId || null,
+      teamName: player.teamName || null
     }));
   }
 

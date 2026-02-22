@@ -34,12 +34,10 @@ export function initScraperSchema() {
             position TEXT NOT NULL,
             overall_rating INTEGER NOT NULL,
             -- Main EA attributes (0-99)
-            pace INTEGER,
             shooting INTEGER,
             passing INTEGER,
             dribbling INTEGER,
             defending INTEGER,
-            physicality INTEGER,
             -- Game-specific derived attributes (0-99)
             power INTEGER,
             shoot INTEGER,
@@ -89,13 +87,46 @@ export function initScraperSchema() {
  * @returns {Object} - { power, shoot, tackle, pass }
  */
 export function deriveGameAttributes(eaStats) {
-    const { pace = 50, shooting = 50, passing = 50, dribbling = 50, defending = 50, physicality = 50 } = eaStats;
+    const { shooting = 50, passing = 50, dribbling = 50, defending = 50, position, overall_rating, detailed_stats } = eaStats;
+
+    // Direct 1:1 Mapping to FC Stats
+    // User Rules:
+    // Shoot = Shooting (Anyone vs GK)
+    // Pass = Passing (Anyone vs Anyone)
+    // Tackle = Defending (Anyone vs Anyone)
+    // Power = GK Power (Everyone has this, derived from detailed GK stats)
+
+    let power = 0;
+
+    // Calculate GK Power for EVERYONE from detailed stats if available
+    if (detailed_stats) {
+        const stats = detailed_stats;
+        // Handle both flat structure (from detailed_stats JSON) or potentially nested if raw
+        // The scraper passes p.stats which has keys like 'gkDiving': { value: 90 }
+
+        const getValue = (key) => stats[key]?.value || 10;
+
+        const div = getValue('gkDiving') || getValue('gk_diving');
+        const han = getValue('gkHandling') || getValue('gk_handling');
+        const kic = getValue('gkKicking') || getValue('gk_kicking');
+        const ref = getValue('gkReflexes') || getValue('gk_reflexes');
+        const pos = getValue('gkPositioning') || getValue('gk_positioning');
+
+        power = Math.round((div + han + kic + ref + pos) / 5);
+    } else {
+        // Fallback if no detailed stats (legacy behavior)
+        if (position === 'GK') {
+            power = overall_rating || 80;
+        } else {
+            power = 15;
+        }
+    }
 
     return {
-        power: Math.round((physicality * 0.6) + (defending * 0.4)),
-        shoot: Math.round((shooting * 0.7) + (pace * 0.3)),
-        tackle: Math.round((defending * 0.7) + (physicality * 0.3)),
-        pass: Math.round((passing * 0.6) + (dribbling * 0.4))
+        power: power,
+        shoot: shooting,
+        tackle: defending,
+        pass: passing
     };
 }
 
@@ -104,31 +135,31 @@ export function deriveGameAttributes(eaStats) {
  */
 export function upsertPlayer(playerData) {
     const gameAttrs = deriveGameAttributes({
-        pace: playerData.pace,
         shooting: playerData.shooting,
         passing: playerData.passing,
         dribbling: playerData.dribbling,
         defending: playerData.defending,
-        physicality: playerData.physicality
+        // CRITICAL FIX: Pass detailed stats and position/rating for correct calculation
+        position: playerData.position,
+        overall_rating: playerData.overall_rating,
+        detailed_stats: playerData.detailed_stats
     });
 
     const stmt = db.prepare(`
         INSERT INTO base_players (
             ea_player_id, real_name, display_name, position, overall_rating,
-            pace, shooting, passing, dribbling, defending, physicality,
+            shooting, passing, dribbling, defending,
             power, shoot, tackle, pass,
             nationality, team_name, image_url, player_url, detailed_stats
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(ea_player_id) DO UPDATE SET
             real_name = excluded.real_name,
             position = excluded.position,
             overall_rating = excluded.overall_rating,
-            pace = excluded.pace,
             shooting = excluded.shooting,
             passing = excluded.passing,
             dribbling = excluded.dribbling,
             defending = excluded.defending,
-            physicality = excluded.physicality,
             power = excluded.power,
             shoot = excluded.shoot,
             tackle = excluded.tackle,
@@ -147,12 +178,10 @@ export function upsertPlayer(playerData) {
         playerData.display_name || null,
         playerData.position,
         playerData.overall_rating,
-        playerData.pace || null,
         playerData.shooting || null,
         playerData.passing || null,
         playerData.dribbling || null,
         playerData.defending || null,
-        playerData.physicality || null,
         gameAttrs.power,
         gameAttrs.shoot,
         gameAttrs.tackle,

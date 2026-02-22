@@ -18,8 +18,8 @@ export const useWebSocket = (onMessage) => {
   }
 
   const connect = () => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      console.log('WebSocket already connected')
+    if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) {
+      console.debug('WebSocket already connected or connecting')
       return
     }
 
@@ -31,12 +31,32 @@ export const useWebSocket = (onMessage) => {
         connected.value = true
         error.value = null
         console.log('✓ WebSocket connected to', getWebSocketURL())
+
+        // Attempt to rejoin session if we have one
+        if (sessionStore.sessionId && sessionStore.sessionId.length > 0) {
+          console.log('Attempting to rejoin session:', sessionStore.sessionId)
+          // Use 'send' wrapper if available, or raw send
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'rejoin_session',
+              payload: {
+                sessionId: sessionStore.sessionId,
+                token: localStorage.getItem('token') || ''
+              }
+            }));
+          }
+        }
       }
 
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data)
-          handleMessage(message)
+          if (message.type === 'error') {
+            console.error('Server Error:', message.payload)
+          } else {
+            handleMessage(message)
+          }
+
           if (onMessage) {
             onMessage(message)
           }
@@ -45,9 +65,11 @@ export const useWebSocket = (onMessage) => {
         }
       }
 
-      ws.onclose = () => {
+      ws.onclose = (event) => {
         connected.value = false
-        console.log('WebSocket disconnected')
+        console.log('WebSocket disconnected', event.code, event.reason)
+        // Auto-reconnect after delay?
+        // setTimeout(connect, 3000)
       }
 
       ws.onerror = (evt) => {
@@ -69,18 +91,21 @@ export const useWebSocket = (onMessage) => {
   }
 
   const send = (type, payload = {}) => {
+    console.log(`[WS] Attempting to send: ${type}`, payload);
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn('WebSocket not ready, reconnecting...')
+      console.warn('[WS] WebSocket not ready (state:', ws?.readyState, '), reconnecting...')
       connect()
       // Queue the message to send after connection
       setTimeout(() => {
         if (ws && ws.readyState === WebSocket.OPEN) {
+          console.log(`[WS] Sending after reconnect: ${type}`)
           ws.send(JSON.stringify({ type, payload }))
         } else {
-          console.error('WebSocket still not connected after retry')
+          console.error('[WS] WebSocket still not connected after retry')
         }
       }, 100)
     } else {
+      console.log(`[WS] Sending now: ${type}`)
       ws.send(JSON.stringify({ type, payload }))
     }
   }
@@ -104,6 +129,7 @@ export const useWebSocket = (onMessage) => {
         break
 
       case 'match_started':
+        sessionStore.setMatchStarted(true, payload)
         gameStore.startMatch()
         gameStore.addEvent({
           type: 'MATCH_START',

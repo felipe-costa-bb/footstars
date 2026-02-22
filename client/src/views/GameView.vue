@@ -99,7 +99,7 @@
 
     <!-- Action Selector (when waiting for user input) -->
     <ActionSelector 
-      v-if="gamePhase === 'SELECT' && possession === 'A'"
+      v-if="gamePhase === 'SELECT' && possession === sessionStore.playerRole && isInteractive"
       :zone="currentZone"
       :ballHolder="currentAttacker?.name || 'Player'"
       @action="onActionSelected"
@@ -107,7 +107,7 @@
 
     <!-- Pass Target Selection -->
     <PlayerSelector 
-      v-if="gamePhase === 'PASS_SELECT' && possession === 'A'"
+      v-if="gamePhase === 'PASS_SELECT' && possession === sessionStore.playerRole && isInteractive"
       :players="teamARoster?.players || []"
       :currentPlayerId="currentAttacker?.id"
       :currentZone="currentZone"
@@ -115,19 +115,29 @@
       @cancel="gamePhase = 'SELECT'"
     />
 
-    <!-- Note: Defender is now auto-selected from opponent's players in the same zone -->
+    <!-- Defender Selection -->
+    <DefenderSelector
+      v-if="gamePhase === 'DEFENDER_SELECT' && possession === sessionStore.playerRole && isInteractive"
+      :players="sessionStore.playerRole === 'A' ? teamARoster?.players : teamBRoster?.players"
+      :attacker="currentAttacker"
+      :zone="currentZone"
+      @select="onDefenderSelected"
+    />
 
-    <!-- Opponent Turn Indicator -->
-    <div v-if="gamePhase === 'SELECT' && possession === 'B'" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40">
-      <div class="bg-red-600/80 backdrop-blur-lg rounded-2xl px-8 py-4 text-white font-bold animate-pulse">
-        Opponent's Turn...
+    <!-- Message when waiting for server -->
+    <div v-if="gamePhase === 'WAITING'" class="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 bg-black/60 px-6 py-2 rounded-full border border-white/20">
+      <div class="flex items-center gap-2 text-white/80">
+        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+        Waiting for match events... (Q: {{ eventQueue.length }})
       </div>
     </div>
 
     <!-- Match End Overlay -->
     <div v-if="gamePhase === 'END'" class="fixed inset-0 bg-black/90 flex items-center justify-center z-50">
       <div class="text-center">
-        <div class="text-6xl mb-4">🏆</div>
+        <div class="flex justify-center mb-4">
+            <Trophy class="w-24 h-24 text-yellow-400 animate-bounce" />
+        </div>
         <div class="text-4xl font-black text-white mb-2">MATCH OVER</div>
         <div class="text-2xl mb-8" :class="scoreA > scoreB ? 'text-green-400' : scoreA < scoreB ? 'text-red-400' : 'text-gray-400'">
           {{ teamAName }} {{ scoreA }} - {{ scoreB }} {{ teamBName }}
@@ -137,7 +147,7 @@
           <span v-else-if="scoreA < scoreB" class="text-red-400 font-bold">YOU LOSE</span>
           <span v-else class="text-gray-400">DRAW</span>
         </div>
-        <button @click="$router.push('/dashboard')" class="px-12 py-4 bg-white text-black font-bold text-xl rounded-lg">
+        <button @click="$router.push('/dashboard')" class="px-12 py-4 bg-white text-black font-bold text-xl rounded-lg hover:bg-gray-200 transition-colors">
           BACK TO DASHBOARD
         </button>
       </div>
@@ -162,9 +172,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useSessionStore } from '../stores/session';
+import { useGameStore } from '../stores/game';
+import { useWebSocket } from '../composables/useWebSocket';
 import ScoreBoard from '../components/game/ScoreBoard.vue';
 import PlayerToken from '../components/game/PlayerToken.vue';
 import RoundBattle from '../components/game/RoundBattle.vue';
@@ -173,22 +185,24 @@ import RoundResult from '../components/game/RoundResult.vue';
 import ActionSelector from '../components/game/ActionSelector.vue';
 import PlayerSelector from '../components/game/PlayerSelector.vue';
 import DefenderSelector from '../components/game/DefenderSelector.vue';
+import { Trophy } from 'lucide-vue-next';
 
 const router = useRouter();
 const route = useRoute();
 const sessionStore = useSessionStore();
+const gameStore = useGameStore();
+const { connect, connected } = useWebSocket();
 
 // Game State
-const gamePhase = ref('SELECT'); // SELECT, PASS_SELECT, DEFENDER_SELECT, BATTLE, DICE, RESULT, END
+const gamePhase = ref('WAITING'); // SELECT, PASS_SELECT, DEFENDER_SELECT, BATTLE, DICE, RESULT, END, WAITING
 const possession = ref('A'); // 'A' = user, 'B' = opponent
 const currentZone = ref(1); // 0=GK, 1=DEF, 2=MID, 3=ATT
-const scoreA = ref(0);
-const scoreB = ref(0);
 const round = ref(1);
 const maxRounds = ref(20);
 const currentAction = ref('PASS');
 const roundOutcome = ref('');
 const logs = ref([]);
+const isInteractive = ref(true); // Set to true if we enable manual control later
 
 // Teams data
 const teamARoster = ref(null);
@@ -197,314 +211,305 @@ const teamBRoster = ref(null);
 // Battle state
 const currentAttacker = ref(null);
 const currentDefender = ref(null);
-const passTarget = ref(null); // Selected player to receive the pass
+const passTarget = ref(null); 
 const diceResult = ref({ d1: 1, d2: 1, modifier: 0, modLabel: '', target: 0 });
+
+// Event Queue for Replay
+const eventQueue = ref([]);
+const isProcessingEvent = ref(false);
 
 // Computed
 const teamAName = computed(() => teamARoster.value?.name || 'Your Team');
 const teamBName = computed(() => teamBRoster.value?.name || 'Opponent');
-const roundDisplay = computed(() => `Round ${round.value}/${maxRounds.value}`);
+const roundDisplay = computed(() => `Round ${round.value}`);
+const scoreA = ref(0);
+const scoreB = ref(0);
 
 // Load teams on mount
 onMounted(async () => {
+  // gameStore.reset(); // MOVED to Lobby/Setup to avoid clearing events received during transition
+  connect();
+  
+  // Sync initial score
+  scoreA.value = gameStore.score.A;
+  scoreB.value = gameStore.score.B;
+
   const teamId = route.query.teamId;
   const opponentId = route.query.opponentId;
   
   try {
-    // Load predefined teams first (we'll need these regardless)
-    const teamsRes = await fetch('http://localhost:3000/api/teams');
-    const teams = await teamsRes.json();
-    
-    // Load user's team from API (hydrated with player data)
+    // Load team A (my team) using the teamId from query params
     if (teamId) {
-      const userTeamRes = await fetch(`/api/teams/${teamId}`, {
+      const userTeamRes = await fetch(`http://localhost:3000/api/teams/${teamId}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
       if (userTeamRes.ok) {
         teamARoster.value = await userTeamRes.json();
-        console.log('User team loaded:', teamARoster.value);
       }
     }
     
-    // Fallback: If no user team loaded, use first predefined team
-    if (!teamARoster.value && teams.length > 0) {
-      teamARoster.value = teams[0];
-      console.log('Using predefined team as user team:', teamARoster.value);
-    }
-    
-    // Load opponent team
+    // Load team B (opponent) using opponentId from query params
     if (opponentId) {
-      teamBRoster.value = teams.find(t => t.id === opponentId) || teams[1] || teams[0];
-    } else {
-      // Fallback: use second team as opponent (or first if only one exists)
-      teamBRoster.value = teams[1] || teams[0];
+      const oppTeamRes = await fetch(`http://localhost:3000/api/teams/${opponentId}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      });
+      if (oppTeamRes.ok) {
+        teamBRoster.value = await oppTeamRes.json();
+      }
     }
     
-    // Ensure different teams for user and opponent
-    if (teamARoster.value?.id === teamBRoster.value?.id && teams.length > 1) {
-      teamBRoster.value = teams.find(t => t.id !== teamARoster.value.id) || teams[1];
+    // Fallback to default teams if needed
+    if (!teamARoster.value || !teamBRoster.value) {
+      const teamsRes = await fetch('http://localhost:3000/api/teams');
+      const defaultTeams = await teamsRes.json();
+      if (!teamARoster.value && defaultTeams.length > 0) {
+        teamARoster.value = defaultTeams[0];
+      }
+      if (!teamBRoster.value && defaultTeams.length > 1) {
+        teamBRoster.value = defaultTeams[1];
+      }
     }
     
-    console.log('Opponent team loaded:', teamBRoster.value);
-    
-    // Set initial attacker
-    currentAttacker.value = getPlayerByZone(currentZone.value, 'A');
   } catch (e) {
     console.error("Failed to load teams", e);
   }
+
+  // Replay any events that arrived before mount (e.g. PHASE_CHANGE)
+  if (gameStore.events.length > 0) {
+      console.log(`[DEBUG] GameView mounted with ${gameStore.events.length} existing events.`);
+      gameStore.events.forEach(event => {
+        if (['PASS', 'GOAL', 'SAVE', 'INTERCEPT', 'MATCH_END', 'PHASE_CHANGE'].includes(event.type)) {
+          console.log(`[DEBUG] Queuing existing event: ${event.type}`);
+          eventQueue.value.push(event);
+        }
+      });
+      processQueue();
+  } else {
+      console.log('[DEBUG] GameView mounted with no events.');
+  }
 });
 
-// Get player from roster by zone
-const getPlayerByZone = (zone, team) => {
-  const roster = team === 'A' ? teamARoster.value : teamBRoster.value;
-  if (!roster?.players) return { name: 'Player', id: 'unknown', position: 'MF', attributes: {} };
-  
-  const zonePositions = {
-    0: ['GK'],
-    1: ['DF', 'CB', 'LB', 'RB'],
-    2: ['MF', 'CM', 'LM', 'RM'],
-    3: ['FW', 'ST', 'LW', 'RW']
-  };
-  
-  const positions = zonePositions[zone] || ['MF'];
-  let player = roster.players.find(p => positions.includes(p.position));
-  if (!player) player = roster.players[zone] || roster.players[0];
-  return player;
-};
-
-// Handle user action selection
-const onActionSelected = (action) => {
-  currentAction.value = action;
-  
-  // Only set current attacker if not already set (e.g., after a successful pass)
-  if (!currentAttacker.value) {
-    currentAttacker.value = getPlayerByZone(currentZone.value, possession.value);
-  }
-  
-  if (action === 'PASS') {
-    // Show player selector for pass target
-    gamePhase.value = 'PASS_SELECT';
-    return;
-  }
-  
-  // SHOOT action
-  currentDefender.value = getPlayerByZone(0, possession.value === 'A' ? 'B' : 'A');
-  startBattle();
-};
-
-// Handle pass target selection
-const onPassTargetSelected = (player) => {
-  passTarget.value = player;
-  
-  // Auto-select a defender from opponent's players in the same zone as the attacker
-  const attackerZone = currentZone.value;
-  const opponentPlayers = teamBRoster.value?.players || [];
-  
-  // Filter to defenders in the same zone (or adjacent zones for more realism)
-  const eligibleDefenders = opponentPlayers.filter(p => {
-    const playerZone = getPlayerZone(p);
-    // Defender can be in same zone or adjacent zone
-    return Math.abs(playerZone - attackerZone) <= 1;
+// Watch for new server events
+watch(() => gameStore.events.length, (newLen, oldLen) => {
+  console.log(`[DEBUG] gameStore.events updated: ${oldLen} -> ${newLen}`);
+  const newEvents = gameStore.events.slice(oldLen);
+  newEvents.forEach(event => {
+    // Only queue gameplay events
+    if (['PASS', 'GOAL', 'SAVE', 'INTERCEPT', 'MATCH_END', 'PHASE_CHANGE'].includes(event.type)) {
+      console.log(`[DEBUG] Queuing new event: ${event.type}`);
+      eventQueue.value.push(event);
+    } else {
+      console.log(`[DEBUG] Ignoring event type: ${event.type}`);
+    }
   });
   
-  // Pick a random eligible defender (simulating AI choice)
-  if (eligibleDefenders.length > 0) {
-    const randomIndex = Math.floor(Math.random() * eligibleDefenders.length);
-    currentDefender.value = eligibleDefenders[randomIndex];
-  } else {
-    // Fallback: pick any defender
-    currentDefender.value = opponentPlayers[0] || { name: 'Defender', tackle: 70 };
+  processQueue();
+});
+
+const processQueue = async () => {
+  if (isProcessingEvent.value) {
+    if (eventQueue.value.length > 0) console.log(`[DEBUG] Queue busy. Pending events: ${eventQueue.value.length}`);
+    return;
   }
+  if (eventQueue.value.length === 0) return;
   
-  console.log('Auto-selected defender:', currentDefender.value.name, 'for zone', attackerZone);
+  isProcessingEvent.value = true;
+  const event = eventQueue.value.shift();
   
-  // Go directly to battle phase
-  startBattle();
+  console.log(`[DEBUG] Processing event: ${event.type}. Remaining in queue: ${eventQueue.value.length}`);
+  await playEvent(event);
+  
+  // Update round info
+  round.value++;
+  
+  // Check for end
+  if (event.type === 'MATCH_END') {
+    gamePhase.value = 'END';
+  } else {
+     // Wait a moment then process next or go to WAITING
+     isProcessingEvent.value = false;
+     if (eventQueue.value.length > 0) {
+        setTimeout(processQueue, 500); // Small pause between events
+     } else {
+        // Only reset to WAITING if we haven't transitioned to an interactive phase
+        if (gamePhase.value !== 'SELECT' && gamePhase.value !== 'PASS_SELECT') {
+            console.log('[DEBUG] Queue empty, setting phase to WAITING');
+            gamePhase.value = 'WAITING';
+        }
+     }
+  }
 };
 
-// Handle defender selection by opponent (kept for potential future use)
-const onDefenderSelected = (defender) => {
-  currentDefender.value = defender;
-  startBattle();
+const playEvent = (event) => {
+  return new Promise((resolve) => {
+    console.log('Playing event:', event.type, event.phase || '');
+    
+    if (event.type === 'PHASE_CHANGE') {
+        if (event.phase === 'SELECTION') {
+            console.log('Phase Change -> SELECTION. Team:', event.teamId);
+            gamePhase.value = 'SELECT';
+            possession.value = event.teamId;
+            addLog('INFO', event.description);
+        } else if (event.phase === 'RESPONSE') {
+            console.log('Phase Change -> RESPONSE. Team:', event.teamId);
+            gamePhase.value = 'DEFENDER_SELECT';
+            possession.value = event.teamId; // This should be the defender's team ID now
+            addLog('INFO', event.description);
+        } else {
+             console.warn('Unknown Phase:', event.phase);
+        }
+        // Immediate resolve for phase changes
+        resolve();
+        return;
+    }
+    
+    // 1. Setup Phase
+    currentAction.value = (event.type === 'GOAL' || event.type === 'SAVE' || event.type === 'MISS') ? 'SHOOT' : 'PASS';
+    possession.value = event.teamId;
+    currentZone.value = event.zone;
+    
+    // Find players involved
+    const attackerId = event.playerId;
+    const defenderId = event.defenderId;
+    
+    currentAttacker.value = getPlayerById(attackerId, event.teamId) || { name: event.playerName, id: event.playerId };
+    currentDefender.value = getPlayerById(defenderId, event.teamId === 'A' ? 'B' : 'A') || { name: event.defenderName, id: event.defenderId };
+    
+    addLog(event.type, event.description);
+    
+    // Update local score IF it's a direct goal event (animation start? or end?)
+    // Best to update it when result is shown or slightly before.
+    // Let's update it here, but maybe we want to wait for "GOAL" text?
+    // Let's defer it to the Result phase for drama.
+    
+    // 2. Battle Phase
+    gamePhase.value = 'BATTLE';
+    
+    setTimeout(() => {
+        // 3. Dice Phase
+        if (event.contestResult) {
+            diceResult.value = {
+                d1: event.contestResult.attackerRoll || 5,
+                d2: event.contestResult.defenderRoll || 5,
+                modifier: 0,
+                modLabel: '',
+                target: 0,
+                attackerData: {
+                  name: currentAttacker.value?.name || 'Attacker',
+                  baseStat: 0, // We could get this from player stats if available
+                  dice: event.contestResult.attackerRoll,
+                  total: event.contestResult.attackerRoll // Simplified
+                },
+                defenderData: {
+                  name: currentDefender.value?.name || 'Defender',
+                  baseStat: 0,
+                  dice: event.contestResult.defenderRoll,
+                  total: event.contestResult.defenderRoll
+                }
+            };
+            gamePhase.value = 'DICE';
+            
+            setTimeout(() => {
+               // 4. Result Phase
+               roundOutcome.value = event.type; // PASS, INTERCEPT, GOAL, SAVE
+               if (event.type === 'PASS') roundOutcome.value = 'SUCCESS';
+               
+               // Update score for display now
+               if (event.type === 'GOAL') {
+                   if (event.teamId === 'A') scoreA.value++;
+                   else scoreB.value++;
+               }
+               
+               gamePhase.value = 'RESULT';
+               
+               // Auto continue after 2 seconds
+               setTimeout(() => {
+                   onContinue();
+               }, 2000);
+               
+               // We return resolver when this is done, but UI shows Result until onContinue is called.
+               // We will hook onContinue to resolve the promise.
+               
+               // Store the resolve function to be called by onContinue
+               currentEventResolve = resolve;
+               
+            }, 2000); // Show dice for 2s
+        } else {
+             // No contest (e.g. simple possession change or start)
+             resolve();
+        }
+    }, 1500); // Show battle for 1.5s
+  });
 };
 
-// Get zone for a player based on position
+let currentEventResolve = null;
+
+// Called by RoundResult component
+const onContinue = () => {
+    // Clear phase
+    // Update local state based on result for "between turns" visuals
+     if (roundOutcome.value === 'GOAL' || roundOutcome.value === 'SAVE') {
+        currentZone.value = 1; // Reset to Kickoff/Defense
+        // Possession swap handled by next event usually
+     }
+     
+    gamePhase.value = 'WAITING';
+    if (currentEventResolve) {
+        const resolve = currentEventResolve;
+        currentEventResolve = null;
+        resolve();
+    }
+};
+
+// Interactive Actions
+const { send } = useWebSocket();
+
+const onActionSelected = (action) => {
+    // Basic check for turn is done by v-if in template, but good to have here
+    console.log('Action selected:', action);
+    if (action === 'SHOOT') {
+        send('player_action', {
+            action: 'SHOOT',
+            playerId: currentAttacker.value?.id
+        });
+        // Optimistic UI update could go here, but we wait for server event
+        gamePhase.value = 'WAITING';
+    } else {
+        // For PASS, we go to PASS_SELECT phase locally
+        // We don't send anything yet
+        gamePhase.value = 'PASS_SELECT';
+    }
+};
+
+const onPassTargetSelected = (targetPlayer) => {
+    console.log('Pass target selected:', targetPlayer);
+    send('player_action', {
+        action: 'PASS',
+        playerId: currentAttacker.value?.id,
+        targetZone: getPlayerZone(targetPlayer) // Helper function
+    });
+    // Wait for server response
+    gamePhase.value = 'WAITING';
+};
+
+const onDefenderSelected = (defenderId) => {
+    console.log('Defender selected:', defenderId);
+    send('player_action', {
+        defenderId: defenderId
+    });
+    // Wait for server
+    gamePhase.value = 'WAITING';
+};
+
+// Helper needed for zone calculation
 const getPlayerZone = (player) => {
-  const pos = player?.position;
+  const pos = player?.role || player?.position;
   if (pos === 'GK') return 0;
   if (['DF', 'CB', 'LB', 'RB'].includes(pos)) return 1;
   if (['MF', 'CM', 'LM', 'RM'].includes(pos)) return 2;
   if (['FW', 'ST', 'LW', 'RW'].includes(pos)) return 3;
   return 2;
 };
-
-// Start the battle phase
-const startBattle = () => {
-  gamePhase.value = 'BATTLE';
-  
-  // After 2 seconds, roll dice
-  setTimeout(() => {
-    rollDice();
-  }, 2000);
-};
-
-// Roll dice and calculate result with full breakdown
-const rollDice = () => {
-  // D10 dice for both attacker and defender
-  const attackerDice = Math.floor(Math.random() * 10) + 1;
-  const defenderDice = Math.floor(Math.random() * 10) + 1;
-  
-  // Get base stats
-  const attackStat = currentAction.value === 'SHOOT' 
-    ? (currentAttacker.value?.attributes?.shoot || currentAttacker.value?.shoot || 75)
-    : (currentAttacker.value?.attributes?.pass || currentAttacker.value?.pass || 75);
-    
-  const defendStat = currentAction.value === 'SHOOT'
-    ? (currentDefender.value?.attributes?.power || currentDefender.value?.power || 75)
-    : (currentDefender.value?.attributes?.tackle || currentDefender.value?.tackle || 75);
-  
-  // Calculate totals (simulating the contest function)
-  const attackerTotal = attackStat + attackerDice;
-  const defenderTotal = defendStat + defenderDice;
-  
-  // Build breakdown data for display
-  diceResult.value = {
-    d1: attackerDice,
-    d2: defenderDice,
-    modifier: 0,
-    modLabel: '',
-    target: defenderTotal,
-    // New breakdown data
-    attackerData: {
-      name: currentAttacker.value?.name || 'Attacker',
-      baseStat: attackStat,
-      dice: attackerDice,
-      fatigue: 0, // Could be tracked in future
-      superMove: 0,
-      counterAttack: 0,
-      total: attackerTotal
-    },
-    defenderData: {
-      name: currentDefender.value?.name || 'Defender',
-      baseStat: defendStat,
-      dice: defenderDice,
-      fatigue: 0,
-      superMove: 0,
-      counterAttack: 0,
-      total: defenderTotal
-    }
-  };
-  
-  gamePhase.value = 'DICE';
-};
-
-// When dice animation completes
-const onDiceComplete = () => {
-  // Use breakdown data to determine success (attacker wins if total > defender total)
-  const attackerTotal = diceResult.value.attackerData?.total || 0;
-  const defenderTotal = diceResult.value.defenderData?.total || 0;
-  const success = attackerTotal > defenderTotal;
-  
-  if (currentAction.value === 'SHOOT') {
-    if (success) {
-      roundOutcome.value = 'GOAL';
-      if (possession.value === 'A') scoreA.value++;
-      else scoreB.value++;
-      addLog('GOAL', `⚽ GOAL by ${currentAttacker.value?.name}!`);
-    } else {
-      roundOutcome.value = 'SAVE';
-      addLog('SAVE', `🧤 Save by ${currentDefender.value?.name}`);
-    }
-  } else {
-    // PASS action
-    const targetName = passTarget.value?.name || 'teammate';
-    if (success) {
-      roundOutcome.value = 'SUCCESS';
-      addLog('PASS', `✓ Pass to ${targetName}`);
-    } else {
-      roundOutcome.value = 'INTERCEPT';
-      addLog('INTERCEPT', `✗ Intercepted by ${currentDefender.value?.name}`);
-    }
-  }
-  
-  gamePhase.value = 'RESULT';
-};
-
-// Continue to next round
-const onContinue = () => {
-  // Track if we should preserve the current attacker (after successful pass)
-  let preserveAttacker = false;
-  
-  // Handle outcome
-  if (roundOutcome.value === 'GOAL') {
-    // Reset to kickoff
-    currentZone.value = 1;
-    possession.value = possession.value === 'A' ? 'B' : 'A';
-    currentAttacker.value = null; // Reset for new possession
-  } else if (roundOutcome.value === 'SAVE') {
-    currentZone.value = 1;
-    possession.value = possession.value === 'A' ? 'B' : 'A';
-    currentAttacker.value = null; // Reset for new possession
-  } else if (roundOutcome.value === 'SUCCESS') {
-    // Ball goes to the selected target player
-    if (passTarget.value) {
-      currentAttacker.value = passTarget.value;
-      currentZone.value = getPlayerZone(passTarget.value);
-      preserveAttacker = true; // Don't reset the attacker!
-    } else {
-      // Fallback: advance zone
-      currentZone.value = Math.min(currentZone.value + 1, 3);
-    }
-    passTarget.value = null;
-  } else if (roundOutcome.value === 'INTERCEPT') {
-    // Turnover
-    possession.value = possession.value === 'A' ? 'B' : 'A';
-    currentZone.value = 1;
-    currentAttacker.value = null; // Reset for new possession
-  }
-  
-  round.value++;
-  
-  // Check end condition
-  if (round.value > maxRounds.value || scoreA.value >= 3 || scoreB.value >= 3) {
-    gamePhase.value = 'END';
-    return;
-  }
-  
-  // If opponent's turn, auto-play
-  if (possession.value === 'B') {
-    gamePhase.value = 'SELECT';
-    setTimeout(() => simulateOpponentTurn(), 1500);
-  } else {
-    // Only reset attacker if we didn't just complete a successful pass
-    if (!preserveAttacker) {
-      currentAttacker.value = getPlayerByZone(currentZone.value, 'A');
-    }
-    gamePhase.value = 'SELECT';
-  }
-};
-
-// Simple AI for opponent
-const simulateOpponentTurn = () => {
-  const action = currentZone.value >= 3 ? 'SHOOT' : 'PASS';
-  
-  currentAction.value = action;
-  currentAttacker.value = getPlayerByZone(currentZone.value, 'B');
-  currentDefender.value = action === 'SHOOT' 
-    ? getPlayerByZone(0, 'A')
-    : getPlayerByZone(currentZone.value + 1, 'A');
-  
-  gamePhase.value = 'BATTLE';
-  setTimeout(() => rollDice(), 2000);
-};
-
-// Add to log
-const addLog = (type, text) => {
-  logs.value.unshift({ type, text });
-  if (logs.value.length > 10) logs.value.pop();
-};
-
-// Player positioning
 const getZoneX = (zone, teamSide) => {
   if (teamSide === 'A') {
     switch(zone) {
@@ -534,13 +539,18 @@ const mapPlayers = (team, side) => {
     else if (['MF', 'CM', 'LM', 'RM'].includes(p.position)) zone = 2;
     else if (['FW', 'ST', 'RW', 'LW'].includes(p.position)) zone = 3;
     
+    // GK should be vertically centered in the goal area
+    const yPosition = p.position === 'GK' 
+      ? 50 
+      : 15 + ((index % 4) * 20) + (side === 'B' ? 5 : 0);
+    
     return {
       id: p.id,
       name: p.name,
       role: p.position,
       imageUrl: p.imageUrl,
       x: getZoneX(zone, side),
-      y: 15 + ((index % 4) * 20) + (side === 'B' ? 5 : 0),
+      y: yPosition,
       team: side
     };
   });
@@ -549,57 +559,27 @@ const mapPlayers = (team, side) => {
 const playersA = computed(() => mapPlayers(teamARoster.value, 'A'));
 const playersB = computed(() => mapPlayers(teamBRoster.value, 'B'));
 
-// Find player position by ID - searches through rendered player tokens
-const getPlayerPosition = (playerId, team) => {
-  const players = team === 'A' ? playersA.value : playersB.value;
-  // Use string comparison to handle both number and string IDs
-  const player = players.find(p => String(p.id) === String(playerId));
-  if (player) {
-    return { x: player.x, y: player.y };
-  }
-  // Fallback: try to find by name if ID doesn't match
-  if (currentAttacker.value?.name) {
-    const playerByName = players.find(p => p.name === currentAttacker.value.name);
-    if (playerByName) {
-      return { x: playerByName.x, y: playerByName.y };
-    }
-  }
-  // Final fallback to zone-based position
-  console.warn('Could not find player position for:', playerId, 'in team', team);
-  const x = team === 'A' 
-    ? getZoneX(currentZone.value, 'A') + 3
-    : getZoneX(currentZone.value, 'B') - 3;
-  return { x, y: 50 };
+const getPlayerById = (id, team) => {
+    const players = team === 'A' ? playersA.value : playersB.value;
+    return players.find(p => String(p.id) === String(id));
 };
 
 const ballPosition = computed(() => {
-  // Ball follows the current ball holder
   if (!currentAttacker.value) {
-    // Fallback when no attacker set
     const x = possession.value === 'A' 
       ? getZoneX(currentZone.value, 'A') + 5
       : getZoneX(currentZone.value, 'B') - 5;
     return { top: '50%', left: `${x}%`, transform: 'translate(-50%, -50%)' };
   }
   
-  // Find the player in the rendered player tokens
   const players = possession.value === 'A' ? playersA.value : playersB.value;
-  
-  // Try to find by ID first (string comparison)
   let player = players.find(p => String(p.id) === String(currentAttacker.value.id));
   
-  // If not found by ID, try by name
   if (!player && currentAttacker.value.name) {
     player = players.find(p => p.name === currentAttacker.value.name);
   }
   
-  // If still not found, use the first player of matching position
-  if (!player && currentAttacker.value.position) {
-    player = players.find(p => p.role === currentAttacker.value.position);
-  }
-  
   if (player) {
-    // Position ball slightly to the right of the player
     const offsetX = possession.value === 'A' ? 3 : -3;
     return { 
       top: `${player.y + 3}%`, 
@@ -608,10 +588,14 @@ const ballPosition = computed(() => {
     };
   }
 
-  // Fallback to zone-based position
   const x = possession.value === 'A' 
     ? getZoneX(currentZone.value, 'A') + 5
     : getZoneX(currentZone.value, 'B') - 5;
   return { top: '50%', left: `${x}%`, transform: 'translate(-50%, -50%)' };
 });
+
+const addLog = (type, text) => {
+  logs.value.unshift({ type, text });
+  if (logs.value.length > 10) logs.value.pop();
+};
 </script>

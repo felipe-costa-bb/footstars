@@ -15,7 +15,7 @@
     {
       "id": "lightning-df-1",
       "name": "Virgil van Dijk",
-      "position": "DF",
+      "position": "CB",
       "attributes": {
         "power": 60,
         "shoot": 55,
@@ -26,7 +26,7 @@
     {
       "id": "lightning-df-2",
       "name": "Sergio Ramos",
-      "position": "DF",
+      "position": "CB",
       "attributes": {
         "power": 55,
         "shoot": 62,
@@ -37,7 +37,7 @@
     {
       "id": "lightning-df-3",
       "name": "Marquinhos",
-      "position": "DF",
+      "position": "CB",
       "attributes": {
         "power": 58,
         "shoot": 50,
@@ -48,7 +48,7 @@
     {
       "id": "lightning-df-4",
       "name": "Andrew Robertson",
-      "position": "DF",
+      "position": "LB",
       "attributes": {
         "power": 50,
         "shoot": 58,
@@ -59,7 +59,7 @@
     {
       "id": "lightning-mf-1",
       "name": "Kevin De Bruyne",
-      "position": "MF",
+      "position": "CM",
       "attributes": {
         "power": 45,
         "shoot": 86,
@@ -70,7 +70,7 @@
     {
       "id": "lightning-mf-2",
       "name": "Luka Modrić",
-      "position": "MF",
+      "position": "CM",
       "attributes": {
         "power": 42,
         "shoot": 76,
@@ -81,7 +81,7 @@
     {
       "id": "lightning-mf-3",
       "name": "N'Golo Kanté",
-      "position": "MF",
+      "position": "CDM",
       "attributes": {
         "power": 48,
         "shoot": 66,
@@ -92,7 +92,7 @@
     {
       "id": "lightning-mf-4",
       "name": "Bruno Fernandes",
-      "position": "MF",
+      "position": "CAM",
       "attributes": {
         "power": 40,
         "shoot": 82,
@@ -103,7 +103,7 @@
     {
       "id": "lightning-fw-1",
       "name": "Kylian Mbappé",
-      "position": "FW",
+      "position": "ST",
       "attributes": {
         "power": 35,
         "shoot": 92,
@@ -114,7 +114,7 @@
     {
       "id": "lightning-fw-2",
       "name": "Erling Haaland",
-      "position": "FW",
+      "position": "ST",
       "attributes": {
         "power": 38,
         "shoot": 95,

@@ -3,8 +3,9 @@
     <div class="max-w-4xl mx-auto">
       <!-- Header -->
       <div class="mb-8">
-        <router-link to="/" class="text-field-accent hover:text-field-accent/80 mb-4 inline-block">
-          ← Back to Home
+        <router-link to="/" class="flex items-center gap-2 text-field-accent hover:text-field-accent/80 mb-4 inline-block transition-colors">
+          <ArrowLeft class="w-4 h-4" />
+          <span>Back to Home</span>
         </router-link>
         <h1 class="text-4xl font-bold text-white mb-2">Create a New Game</h1>
         <p class="text-gray-400">Choose your team and wait for an opponent</p>
@@ -23,7 +24,8 @@
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
               class="flex-1 py-3 px-4 rounded-lg font-semibold transition flex items-center justify-center gap-2"
             >
-              <span>🔒</span> Private Game
+              <Lock class="w-4 h-4" />
+              <span>Private Game</span>
             </button>
             <button
               @click="isPublic = true"
@@ -32,7 +34,8 @@
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'"
               class="flex-1 py-3 px-4 rounded-lg font-semibold transition flex items-center justify-center gap-2"
             >
-              <span>🌍</span> Public Game
+              <Globe class="w-4 h-4" />
+              <span>Public Game</span>
             </button>
           </div>
           <p class="text-sm text-gray-400 mt-3">
@@ -103,13 +106,14 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useSessionStore } from '../stores/session'
-import { useTeamsStore } from '../stores/teams'
+import { useGameStore } from '../stores/game'
 import { useAuthStore } from '../stores/auth'
 import { useWebSocket } from '../composables/useWebSocket'
+import { ArrowLeft, Lock, Globe } from 'lucide-vue-next'
 
 const router = useRouter()
 const sessionStore = useSessionStore()
-const teamsStore = useTeamsStore()
+const gameStore = useGameStore()
 const authStore = useAuthStore()
 const { send } = useWebSocket()
 
@@ -127,6 +131,10 @@ onMounted(async () => {
       router.push('/');
       return;
   }
+  
+  // Reset previous session state
+  sessionStore.reset()
+  gameStore.reset() // Clear any old game state
 
   // Fetch defaults
   try {
@@ -179,10 +187,15 @@ const createGame = () => {
   // Store selection
   sessionStore.setTeamId(selectedTeam.value)
 
+  // Get team name
+  const team = teams.value.find(t => t.id === selectedTeam.value)
+  const teamName = team ? team.name : 'Unknown Team'
+
   // Send create_session message to server
   send('create_session', {
     name: playerName.value,
     teamId: selectedTeam.value,
+    teamName: teamName,
     token: authStore.token,
     isPublic: isPublic.value
   })

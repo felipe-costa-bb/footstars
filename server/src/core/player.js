@@ -9,8 +9,23 @@ export class Player {
     this.id = data.id;
     this.name = data.name;
     this.position = data.position;
+    this.imageUrl = data.imageUrl || null;
     this.attributes = { ...data.attributes };
-    
+
+    // Preserve metadata for card display
+    this.overallRating = data.overallRating || 0;
+    this.team = data.team || null;
+    this.nationality = data.nationality || null;
+    this.league = data.league || null;
+    this.playerId = data.playerId || data.id;
+    this.gainedAt = data.gainedAt || null;
+
+    // Preserve flat stats for compatibility
+    this.power = data.power || this.attributes.power;
+    this.shoot = data.shoot || this.attributes.shoot;
+    this.pass = data.pass || this.attributes.pass;
+    this.tackle = data.tackle || this.attributes.tackle;
+
     this.validate();
   }
 
@@ -25,10 +40,16 @@ export class Player {
     if (!this.name) {
       throw new Error('Player must have a name');
     }
-    if (!['GK', 'DF', 'MF', 'FW'].includes(this.position)) {
+    const validPositions = [
+      'GK',
+      'CB', 'LB', 'RB', 'LWB', 'RWB',
+      'CDM', 'CM', 'CAM', 'LM', 'RM',
+      'LW', 'RW', 'ST', 'CF'
+    ];
+    if (!validPositions.includes(this.position)) {
       throw new Error(`Invalid position: ${this.position}`);
     }
-    
+
     const requiredAttrs = ['power', 'shoot', 'tackle', 'pass'];
     for (const attr of requiredAttrs) {
       if (typeof this.attributes[attr] !== 'number') {
@@ -66,6 +87,7 @@ export class Player {
       id: this.id,
       name: this.name,
       position: this.position,
+      imageUrl: this.imageUrl,
       attributes: { ...this.attributes }
     };
   }

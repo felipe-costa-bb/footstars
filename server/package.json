@@ -6,7 +6,7 @@
   "main": "src/cli/index.js",
   "scripts": {
     "start": "node src/cli/index.js",
-    "server": "node src/server/index.js",
+    "server": "node --watch src/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "simulate": "node src/cli/simulate.js multi 10",
@@ -27,6 +27,7 @@
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.6.2",
     "cheerio": "^1.2.0",
+    "jimp": "^1.6.0",
     "jsonwebtoken": "^9.0.3",
     "puppeteer-core": "^24.36.0",
     "ws": "^8.18.0"

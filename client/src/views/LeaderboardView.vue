@@ -3,8 +3,9 @@
     <div class="max-w-4xl mx-auto">
       <!-- Header -->
       <div class="mb-8">
-        <router-link to="/dashboard" class="text-field-accent hover:text-field-accent/80 mb-2 inline-block">
-          ← Back to Dashboard
+        <router-link to="/dashboard" class="flex items-center gap-2 text-field-accent hover:text-field-accent/80 mb-2 inline-block transition-colors">
+          <ArrowLeft class="w-4 h-4" />
+          <span>Back to Dashboard</span>
         </router-link>
         <h1 class="text-4xl font-bold text-white">Leaderboard</h1>
         <p class="text-gray-400">Top managers by wins</p>
@@ -70,6 +71,7 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { useAuthStore } from '../stores/auth';
+import { ArrowLeft } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
 
